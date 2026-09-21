@@ -1,22 +1,54 @@
 experiment:
   name: smart_waste_resimulation
-  version: "1.0"
+  version: "0.1.0"
 
 random:
   master_seed: 20260922
 
 city:
   area_km2: 50.0
+  shape: square
   num_bins: 1000
+  distance_model:
+    metric: euclidean
+  # Resimulation assumption:
+  # the manuscript specifies 50 km² but not the geometry.
+  depot:
+    location: center
+
+bins:
+  initial_fill:
+    distribution: uniform
+    minimum_percent: 0.0
+    maximum_percent: 100.0
+
+  service_threshold_percent: 80.0
+  overflow_threshold_percent: 100.0
+
+waste:
+  bin_volume_m3: 1.1
+
+  density:
+    nominal_kg_per_m3: 229.088
+
+  sensitivity_density_kg_per_m3:
+    - 136.364
+    - 229.088
+    - 318.182
+
+  demand_model:
+    type: proportional_to_fill
 
 fleet:
   num_trucks: 10
   truck_capacity_tonnes: 10.0
   fuel_efficiency_km_per_litre: 2.5
 
-bins:
-  service_threshold_percent: 80.0
-  overflow_threshold_percent: 100.0
+tsr:
+    assignment: angular_sectors
+    route_order: nearest_neighbor
+    visit_all_bins: true
+    capacity_policy: return_to_depot_and_resume
 
 attack:
   fdi_rates:
