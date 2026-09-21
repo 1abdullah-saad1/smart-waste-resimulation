@@ -1,0 +1,31 @@
+experiment:
+  name: smart_waste_resimulation
+  version: "1.0"
+
+random:
+  master_seed: 20260922
+
+city:
+  area_km2: 50.0
+  num_bins: 1000
+
+fleet:
+  num_trucks: 10
+  truck_capacity_tonnes: 10.0
+  fuel_efficiency_km_per_litre: 2.5
+
+bins:
+  service_threshold_percent: 80.0
+  overflow_threshold_percent: 100.0
+
+attack:
+  fdi_rates:
+    - 0.00
+    - 0.10
+    - 0.15
+    - 0.20
+    - 0.30
+
+evaluation:
+  episodes_per_scenario: 100
+  confidence_level: 0.95
