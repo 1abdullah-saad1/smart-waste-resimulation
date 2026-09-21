@@ -1,0 +1,41 @@
+Date: 2026-09-22T01:09:34+03:00
+
+OS:
+Ubuntu 24.04.4 LTS
+
+Kernel:
+7.0.0-31-generic
+
+Python:
+Python 3.12.3
+
+Python executable:
+/home/abdullah/Projects/smart-waste-resimulation/.venv/bin/python
+
+CPU:
+Model name:                              Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz
+
+Logical CPUs:
+8
+
+RAM:
+Mem:           7.5Gi       4.9Gi       648Mi       628Mi       3.2Gi       2.6Gi
+
+Git:
+git version 2.43.0
+
+Pip:
+pip 26.2.1 from /home/abdullah/Projects/smart-waste-resimulation/.venv/lib/python3.12/site-packages/pip (python 3.12)
+
+=== Python Packages ===
+NumPy: 2.5.3
+Pandas: 3.0.6
+SciPy: 1.18.1
+Scikit-learn: 1.9.1
+NetworkX: 3.7
+Gymnasium: 1.3.0
+OR-Tools: 9.15.6755
+Statsmodels: 0.15.0
+PyTorch: 2.14.0+cu130
+CUDA available: False
+PyTorch threads: 4
