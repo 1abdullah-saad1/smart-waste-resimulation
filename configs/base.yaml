@@ -44,11 +44,19 @@ fleet:
   truck_capacity_tonnes: 10.0
   fuel_efficiency_km_per_litre: 2.5
 
-tsr:
+routing:
+  tsr:
     assignment: angular_sectors
     route_order: nearest_neighbor
     visit_all_bins: true
     capacity_policy: return_to_depot_and_resume
+
+  hdr:
+    primary_policy: sector_nearest_neighbor
+    service_threshold_percent: 80.0
+
+    sensitivity:
+      - global_greedy_nearest_neighbor
 
 attack:
   fdi_rates:
@@ -58,6 +66,18 @@ attack:
     - 0.20
     - 0.30
 
+  fdi:
+    forged_fill_percent: 100.0
+    node_selection: uniform_without_replacement
+
+    primary_threat:
+      type: external_unauthenticated_forgery
+
+    boundary_case:
+      type: authenticated_compromised_node
+
 evaluation:
   episodes_per_scenario: 100
+  attack_replicates: 100
   confidence_level: 0.95
+  paired_attack_severities: true
