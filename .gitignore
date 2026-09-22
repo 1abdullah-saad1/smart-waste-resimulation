@@ -14,3 +14,6 @@ logs/*
 !results/processed/.gitkeep
 !results/figures/.gitkeep
 !logs/.gitkeep
+
+# Generated DQN model checkpoints
+results/models/
