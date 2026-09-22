@@ -1,0 +1,12 @@
+distance_attribute: length_km
+
+road_density_target_km_per_km2: 10.0
+road_density_tolerance_fraction: 0.05
+
+require_connected_service_network: true
+require_positive_edge_lengths: true
+
+provenance:
+  road_density_target_km_per_km2: revised_benchmark
+  road_density_tolerance_fraction: revised_benchmark_fairness_rule
+  distance_attribute: revised_model
