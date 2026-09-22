@@ -1,0 +1,51 @@
+experiment: false_data_injection
+
+routing_attack:
+  severity_rates:
+    - 0.00
+    - 0.10
+    - 0.15
+    - 0.20
+    - 0.30
+
+  representative_rate: 0.15
+
+  forged_fill_percent: 100.0
+
+  population:
+    source: actual_scenario_bin_ids
+    sampling: uniform_without_replacement
+
+  selection:
+    primary_mode: paired_nested
+    count_rule: round_half_up
+    deterministic: true
+
+  pairing:
+    nested_across_severity: true
+    same_targets_across_attack_types: true
+    same_targets_across_compared_policies: true
+
+threat_models:
+  external_unauthenticated:
+    signature_valid: false
+    poa_accepts_forged_telemetry: false
+    role: manuscript_security_threat_model
+
+  authenticated_compromise:
+    signature_valid: true
+    poa_accepts_forged_telemetry: true
+    role: stronger_security_sensitivity
+
+physical_truth:
+  mutate_fill_percent: false
+  mutate_waste_mass: false
+
+provenance:
+  severity_10_to_30_percent: manuscript_routing_setup
+  representative_15_percent: reconstructed_experiment_specification
+  forged_100_percent: manuscript_routing_setup
+  paired_nested_severity: revised_benchmark_design
+  same_targets_across_attack_types: revised_benchmark_design
+  round_half_up_counting: revised_benchmark_design
+  authenticated_compromise: robustness_extension
