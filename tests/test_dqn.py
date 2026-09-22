@@ -319,3 +319,55 @@ def test_target_network_can_be_synchronized():
             target,
         )
     )
+
+
+def test_zero_epsilon_does_not_advance_exploration_rng():
+
+    first = DQNAgent(
+        input_dim=4,
+        action_dim=4,
+        seed=12345,
+    )
+
+    second = DQNAgent(
+        input_dim=4,
+        action_dim=4,
+        seed=12345,
+    )
+
+    observation = np.zeros(
+        4,
+        dtype=np.float32,
+    )
+
+    mask = np.ones(
+        4,
+        dtype=bool,
+    )
+
+    # Greedy evaluation must not consume exploration RNG.
+    first.select_action(
+        observation,
+        mask,
+        epsilon=0.0,
+    )
+
+    first_random = [
+        first.select_action(
+            observation,
+            mask,
+            epsilon=1.0,
+        )
+        for _ in range(20)
+    ]
+
+    second_random = [
+        second.select_action(
+            observation,
+            mask,
+            epsilon=1.0,
+        )
+        for _ in range(20)
+    ]
+
+    assert first_random == second_random

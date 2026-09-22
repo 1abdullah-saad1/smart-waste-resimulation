@@ -448,12 +448,10 @@ class DQNAgent:
             ),
         )
 
-    def select_action(
+    def select_greedy_action(
         self,
         observation: np.ndarray,
         action_mask: np.ndarray,
-        *,
-        epsilon: float,
     ) -> int:
 
         observation = np.asarray(
@@ -480,13 +478,6 @@ class DQNAgent:
         if len(valid_actions) == 0:
             raise ValueError(
                 "no valid actions available"
-            )
-
-        if self.rng.random() < epsilon:
-            return int(
-                self.rng.choice(
-                    valid_actions
-                )
             )
 
         with torch.no_grad():
@@ -520,6 +511,59 @@ class DQNAgent:
                 ).item()
             )
 
+    def select_action(
+        self,
+        observation: np.ndarray,
+        action_mask: np.ndarray,
+        *,
+        epsilon: float,
+    ) -> int:
+
+        if not 0.0 <= epsilon <= 1.0:
+            raise ValueError(
+                "epsilon must be between 0 and 1"
+            )
+
+        action_mask = np.asarray(
+            action_mask,
+            dtype=bool,
+        )
+
+        if action_mask.shape != (
+            self.action_dim,
+        ):
+            raise ValueError(
+                "action_mask has invalid shape"
+            )
+
+        valid_actions = np.flatnonzero(
+            action_mask
+        )
+
+        if len(valid_actions) == 0:
+            raise ValueError(
+                "no valid actions available"
+            )
+
+        # Important:
+        # epsilon == 0 must not advance the exploration RNG.
+        if epsilon == 0.0:
+            return self.select_greedy_action(
+                observation,
+                action_mask,
+            )
+
+        if self.rng.random() < epsilon:
+            return int(
+                self.rng.choice(
+                    valid_actions
+                )
+            )
+
+        return self.select_greedy_action(
+            observation,
+            action_mask,
+        )
     def remember(
         self,
         *,
