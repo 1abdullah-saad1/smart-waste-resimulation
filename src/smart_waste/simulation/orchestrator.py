@@ -381,9 +381,90 @@ class SimulationOrchestrator:
             bin_id=bin_id,
         )
 
-        self.dispatch_truck(
-            truck_id
+        post_service_view = build_policy_view(
+            state,
+            reservations=(
+                self.reservation_book.snapshot()
+            ),
         )
+
+        if self.policy.is_complete(
+            post_service_view
+        ):
+            self._dispatch_idle_trucks_after_global_completion(
+                state
+            )
+        else:
+            self.dispatch_truck(
+                truck_id
+            )
+
+    def _dispatch_idle_trucks_after_global_completion(
+        self,
+        state: SimulationState,
+    ) -> None:
+        """
+        Wake every idle truck when the collection policy transitions
+        to global completion.
+
+        A truck may previously have received NO_CANDIDATE after
+        finishing its own route while other trucks were still
+        working. Such a truck has no future event capable of waking
+        it again.
+
+        Once the policy is globally complete, every idle truck must
+        re-enter the central dispatcher so that the normal terminal
+        lifecycle is enforced:
+
+            current position
+            -> depot
+            -> unload
+            -> refuel
+            -> FINISHED
+
+        Physical completion remains entirely under the dispatcher
+        and depot-service layers.
+        """
+
+        completion_view = build_policy_view(
+            state,
+            reservations=(
+                self.reservation_book.snapshot()
+            ),
+        )
+
+        if not self.policy.is_complete(
+            completion_view
+        ):
+            raise OrchestratorError(
+                "idle-truck completion wake-up requires "
+                "a globally complete policy"
+            )
+
+        for candidate_truck_id in sorted(
+            state.trucks
+        ):
+            truck = state.trucks[
+                candidate_truck_id
+            ]
+
+            if truck.status != TruckStatus.IDLE:
+                continue
+
+            if (
+                self.reservation_book.bin_for_truck(
+                    candidate_truck_id
+                )
+                is not None
+            ):
+                raise OrchestratorError(
+                    f"idle truck {candidate_truck_id} still "
+                    "owns a bin reservation at global completion"
+                )
+
+            self.dispatch_truck(
+                candidate_truck_id
+            )
 
     def _handle_depot_service_complete(
         self,

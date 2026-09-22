@@ -7,7 +7,10 @@ from typing import Sequence
 
 import networkx as nx
 
-from smart_waste.collection.base import PolicyView
+from smart_waste.collection.base import (
+    CollectionPolicy,
+    PolicyView,
+)
 from smart_waste.movement.road_graph import RoadGraph
 
 
@@ -2243,3 +2246,420 @@ def balance_adjacent_zones(
             exchanges
         ),
     )
+
+
+class TSRPolicyError(RuntimeError):
+    """Raised when the static TSR policy lifecycle is violated."""
+
+
+@dataclass(frozen=True)
+class TSRPolicyPlan:
+    """
+    Immutable finalized TSR plan used during simulation.
+    """
+
+    balance_result: TSRBalanceResult
+    routes_by_truck: tuple[
+        tuple[int, tuple[int, ...]],
+        ...,
+    ]
+
+    def route_for_truck(
+        self,
+        truck_id: int,
+    ) -> tuple[int, ...]:
+        for (
+            candidate_truck_id,
+            route,
+        ) in self.routes_by_truck:
+            if candidate_truck_id == truck_id:
+                return route
+
+        raise KeyError(
+            f"unknown TSR truck_id: {truck_id}"
+        )
+
+
+class TSRCollectionPolicy(CollectionPolicy):
+    """
+    Balanced Longitudinal Static Routing collection policy.
+
+    Planning occurs exactly once during initialize():
+
+        longitudinal equal partition
+        -> adjacent-zone balancing
+        -> NN route construction
+        -> deterministic 2-opt
+        -> immutable per-truck static routes
+
+    During simulation, this policy only exposes the next bin in
+    each static route.
+
+    Physical feasibility remains exclusively under the simulation
+    dispatcher. Capacity/fuel-driven depot returns therefore do
+    not alter or reorder the TSR route.
+    """
+
+    def __init__(
+        self,
+        *,
+        road_graph: RoadGraph,
+        truck_ids: Sequence[int],
+        candidate_count: int = 10,
+        target_relative_range: float = 0.10,
+        two_opt_epsilon: float = 1.0e-12,
+        require_primary_partition: bool = False,
+    ) -> None:
+        ordered_truck_ids = tuple(
+            sorted(
+                truck_ids
+            )
+        )
+
+        if not ordered_truck_ids:
+            raise ValueError(
+                "TSR requires at least one truck"
+            )
+
+        if len(set(ordered_truck_ids)) != len(
+            ordered_truck_ids
+        ):
+            raise ValueError(
+                "TSR truck IDs must be unique"
+            )
+
+        if candidate_count <= 0:
+            raise ValueError(
+                "candidate_count must be positive"
+            )
+
+        if target_relative_range < 0.0:
+            raise ValueError(
+                "target_relative_range cannot be negative"
+            )
+
+        if two_opt_epsilon < 0.0:
+            raise ValueError(
+                "two_opt_epsilon cannot be negative"
+            )
+
+        self._road_graph = road_graph
+        self._truck_ids = ordered_truck_ids
+        self._candidate_count = candidate_count
+        self._target_relative_range = (
+            target_relative_range
+        )
+        self._two_opt_epsilon = (
+            two_opt_epsilon
+        )
+        self._require_primary_partition = (
+            require_primary_partition
+        )
+
+        self._plan: TSRPolicyPlan | None = None
+
+        self._next_index_by_truck: dict[
+            int,
+            int,
+        ] = {}
+
+        self._completed_bins: set[
+            int
+        ] = set()
+
+    @property
+    def initialized(self) -> bool:
+        return self._plan is not None
+
+    @property
+    def plan(self) -> TSRPolicyPlan:
+        if self._plan is None:
+            raise TSRPolicyError(
+                "TSR policy has not been initialized"
+            )
+
+        return self._plan
+
+    @property
+    def completed_bin_count(self) -> int:
+        return len(
+            self._completed_bins
+        )
+
+    @property
+    def truck_ids(self) -> tuple[int, ...]:
+        return self._truck_ids
+
+    def initialize(
+        self,
+        view: PolicyView,
+    ) -> None:
+        if self.initialized:
+            raise TSRPolicyError(
+                "TSR policy is already initialized"
+            )
+
+        view_truck_ids = {
+            truck.truck_id
+            for truck in view.trucks
+        }
+
+        missing_trucks = (
+            set(self._truck_ids)
+            - view_truck_ids
+        )
+
+        if missing_trucks:
+            raise TSRPolicyError(
+                "TSR planning references trucks not present "
+                f"in policy view: {sorted(missing_trucks)}"
+            )
+
+        zones = build_longitudinal_zones(
+            view=view,
+            road_graph=self._road_graph,
+            truck_ids=self._truck_ids,
+        )
+
+        if self._require_primary_partition:
+            validate_primary_tsr_partition(
+                zones
+            )
+
+        distance_oracle = (
+            build_tsr_distance_oracle(
+                view=view,
+                road_graph=self._road_graph,
+            )
+        )
+
+        balance_result = (
+            balance_adjacent_zones(
+                zones=zones,
+                view=view,
+                road_graph=self._road_graph,
+                candidate_count=(
+                    self._candidate_count
+                ),
+                target_relative_range=(
+                    self._target_relative_range
+                ),
+                two_opt_epsilon=(
+                    self._two_opt_epsilon
+                ),
+                distance_oracle=(
+                    distance_oracle
+                ),
+            )
+        )
+
+        routes_by_truck = tuple(
+            (
+                route.truck_id,
+                tuple(
+                    route.optimized_bin_ids
+                ),
+            )
+            for route in sorted(
+                balance_result.final_routes,
+                key=lambda route: (
+                    route.truck_id
+                ),
+            )
+        )
+
+        route_truck_ids = tuple(
+            truck_id
+            for truck_id, _ in routes_by_truck
+        )
+
+        if route_truck_ids != self._truck_ids:
+            raise TSRPolicyError(
+                "final TSR routes do not match policy truck IDs"
+            )
+
+        planned_bins = tuple(
+            bin_id
+            for _, route in routes_by_truck
+            for bin_id in route
+        )
+
+        view_bin_ids = tuple(
+            sorted(
+                bin_.bin_id
+                for bin_ in view.bins
+            )
+        )
+
+        if tuple(
+            sorted(
+                planned_bins
+            )
+        ) != view_bin_ids:
+            raise TSRPolicyError(
+                "final TSR routes do not cover the policy bin set"
+            )
+
+        if len(
+            planned_bins
+        ) != len(
+            set(planned_bins)
+        ):
+            raise TSRPolicyError(
+                "final TSR routes contain duplicate bin assignments"
+            )
+
+        self._plan = TSRPolicyPlan(
+            balance_result=(
+                balance_result
+            ),
+            routes_by_truck=(
+                routes_by_truck
+            ),
+        )
+
+        self._next_index_by_truck = {
+            truck_id: 0
+            for truck_id in self._truck_ids
+        }
+
+        self._completed_bins.clear()
+
+    def select_next_bin(
+        self,
+        *,
+        view: PolicyView,
+        truck_id: int,
+    ) -> int | None:
+        """
+        Return the next fixed TSR route element.
+
+        The route cursor advances only after successful physical
+        service completion. Therefore an intervening depot return
+        cannot reorder or skip a bin.
+        """
+
+        if not self.initialized:
+            raise TSRPolicyError(
+                "TSR policy must be initialized before selection"
+            )
+
+        if truck_id not in self._next_index_by_truck:
+            raise TSRPolicyError(
+                f"unknown TSR truck_id: {truck_id}"
+            )
+
+        route = self.plan.route_for_truck(
+            truck_id
+        )
+
+        index = self._next_index_by_truck[
+            truck_id
+        ]
+
+        if index >= len(route):
+            return None
+
+        bin_id = route[
+            index
+        ]
+
+        bin_view = view.bin_by_id(
+            bin_id
+        )
+
+        if bin_view.is_reserved:
+            raise TSRPolicyError(
+                f"static TSR bin {bin_id} for truck "
+                f"{truck_id} is unexpectedly reserved by "
+                f"truck {bin_view.reserved_by_truck_id}"
+            )
+
+        return bin_id
+
+    def on_service_complete(
+        self,
+        *,
+        view: PolicyView,
+        truck_id: int,
+        bin_id: int,
+    ) -> None:
+        if not self.initialized:
+            raise TSRPolicyError(
+                "TSR policy must be initialized before "
+                "service completion"
+            )
+
+        if truck_id not in self._next_index_by_truck:
+            raise TSRPolicyError(
+                f"unknown TSR truck_id: {truck_id}"
+            )
+
+        route = self.plan.route_for_truck(
+            truck_id
+        )
+
+        index = self._next_index_by_truck[
+            truck_id
+        ]
+
+        if index >= len(route):
+            raise TSRPolicyError(
+                f"truck {truck_id} has no pending TSR bin"
+            )
+
+        expected_bin_id = route[
+            index
+        ]
+
+        if bin_id != expected_bin_id:
+            raise TSRPolicyError(
+                f"truck {truck_id} completed bin {bin_id}, "
+                f"expected static TSR bin {expected_bin_id}"
+            )
+
+        if bin_id in self._completed_bins:
+            raise TSRPolicyError(
+                f"TSR bin {bin_id} was completed twice"
+            )
+
+        # Orchestrator releases the reservation before invoking
+        # this callback.
+        bin_view = view.bin_by_id(
+            bin_id
+        )
+
+        if bin_view.is_reserved:
+            raise TSRPolicyError(
+                f"completed TSR bin {bin_id} still appears reserved"
+            )
+
+        self._completed_bins.add(
+            bin_id
+        )
+
+        self._next_index_by_truck[
+            truck_id
+        ] = (
+            index
+            + 1
+        )
+
+    def is_complete(
+        self,
+        view: PolicyView,
+    ) -> bool:
+        if not self.initialized:
+            return False
+
+        return all(
+            self._next_index_by_truck[
+                truck_id
+            ]
+            >= len(
+                self.plan.route_for_truck(
+                    truck_id
+                )
+            )
+            for truck_id in self._truck_ids
+        )
