@@ -1,0 +1,28 @@
+strategy: balanced_longitudinal_static_routing
+
+truck_count: 10
+bins_per_truck: 100
+
+initial_partition:
+  ordering:
+    - x
+    - y
+    - bin_id
+  contiguous_equal_zones: true
+
+route_construction:
+  distance_metric: shortest_road_distance
+  initial_method: nearest_neighbor
+  improvement_method: deterministic_2opt
+  return_to_depot: true
+  nearest_neighbor_tie_break: bin_id
+  two_opt_epsilon: 1.0e-12
+
+balancing:
+  enabled: false
+  phase: phase_4b
+
+provenance:
+  strategy: revised_benchmark
+  equal_zone_size: revised_tsr_specification
+  route_construction: revised_tsr_specification
