@@ -19,7 +19,36 @@ class BinPolicyView:
     fill_percent: float
     fill_rate_percent_per_hour: float
     waste_mass_tonnes: float
+
+    # Routing telemetry is intentionally distinct from physical
+    # fill. When None, nominal behavior falls back to the true
+    # simulated fill_percent.
+    reported_fill_percent: float | None = None
+
     reserved_by_truck_id: int | None = None
+
+    @property
+    def true_fill_percent(self) -> float:
+        return self.fill_percent
+
+    @property
+    def routing_fill_percent(self) -> float:
+        """
+        Fill value visible to routing policies.
+
+        Nominal:
+            reported_fill_percent is None
+            -> true physical fill is used.
+
+        FDI / telemetry manipulation:
+            reported_fill_percent contains the observed/spoofed
+            value while fill_percent remains physical truth.
+        """
+
+        if self.reported_fill_percent is None:
+            return self.fill_percent
+
+        return self.reported_fill_percent
 
     @property
     def is_reserved(self) -> bool:

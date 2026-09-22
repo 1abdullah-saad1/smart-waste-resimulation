@@ -1,0 +1,34 @@
+strategy: heuristic_dynamic_routing
+
+eligibility:
+  source: reported_fill_snapshot
+  threshold_percent: 80.0
+  comparison: greater_than_or_equal
+  snapshot_time: policy_initialize
+
+candidate_scope:
+  mode: global
+  reservations_excluded: true
+
+routing:
+  mode: dynamic_reselection
+  selection: nearest_eligible_unreserved_bin
+  distance_metric: shortest_road_distance
+  tie_break: bin_id
+  reselection_after_successful_service: true
+
+physical_feasibility:
+  owner: central_dispatcher
+  policy_capacity_decisions: false
+  policy_fuel_decisions: false
+  policy_depot_return_decisions: false
+
+telemetry:
+  nominal_reported_equals_true: true
+  physical_truth_mutated_by_reported_override: false
+
+provenance:
+  threshold_percent: manuscript_baseline
+  greedy_nearest_neighbor: manuscript_baseline
+  global_fleet_scope: revised_benchmark_resolution
+  eligibility_snapshot_timing: revised_benchmark_resolution
