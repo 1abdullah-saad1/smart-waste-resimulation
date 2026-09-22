@@ -33,37 +33,6 @@ def service_duration_hours(
     return service_time_seconds / 3600.0
 
 
-def _projected_collection_mass_tonnes(
-    *,
-    current_fill_percent: float,
-    fill_rate_percent_per_hour: float,
-    elapsed_hours: float,
-    full_mass_kg: float,
-) -> float:
-    """
-    Project the mass that will be physically present when
-    service completes.
-
-    This prevents a truck from beginning service when the small
-    amount of waste accumulated during the service interval would
-    make its capacity infeasible.
-    """
-
-    projected_fill = min(
-        100.0,
-        current_fill_percent
-        + fill_rate_percent_per_hour
-        * elapsed_hours,
-    )
-
-    return (
-        full_mass_kg
-        * projected_fill
-        / 100.0
-        / 1000.0
-    )
-
-
 def schedule_bin_service(
     *,
     state: SimulationState,
@@ -107,13 +76,8 @@ def schedule_bin_service(
     )
 
     projected_mass_tonnes = (
-        _projected_collection_mass_tonnes(
-            current_fill_percent=bin_.fill_percent,
-            fill_rate_percent_per_hour=(
-                bin_.fill_rate_percent_per_hour
-            ),
-            elapsed_hours=duration_hours,
-            full_mass_kg=bin_.full_mass_kg,
+        bin_.projected_waste_mass_tonnes(
+            duration_hours
         )
     )
 

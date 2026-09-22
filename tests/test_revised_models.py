@@ -260,3 +260,32 @@ def test_events_are_deterministically_ordered() -> None:
 
     assert (first.time_hours, first.sequence) == (1.0, 1)
     assert (second.time_hours, second.sequence) == (1.0, 2)
+
+
+def test_bin_projection_does_not_mutate_state() -> None:
+    bin_ = WasteBin(
+        bin_id=0,
+        road_node=1,
+        fill_percent=50.0,
+        fill_rate_percent_per_hour=2.0,
+        full_mass_kg=440.0,
+    )
+
+    projected_fill = bin_.projected_fill_percent(
+        3.0
+    )
+
+    projected_mass = (
+        bin_.projected_waste_mass_tonnes(
+            3.0
+        )
+    )
+
+    assert projected_fill == pytest.approx(56.0)
+    assert projected_mass == pytest.approx(
+        0.2464
+    )
+
+    # Projection must never advance physical state.
+    assert bin_.fill_percent == pytest.approx(50.0)
+    assert bin_.waste_age_hours == pytest.approx(0.0)

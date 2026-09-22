@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 @dataclass
 class WasteBin:
-    """Physical state of one road-accessible waste bin."""
+    """Mutable physical state of one road-accessible waste bin."""
 
     bin_id: int
     road_node: int | str
@@ -18,7 +18,9 @@ class WasteBin:
 
     def __post_init__(self) -> None:
         if self.bin_id < 0:
-            raise ValueError("bin_id must be non-negative")
+            raise ValueError(
+                "bin_id must be non-negative"
+            )
 
         if not 0.0 <= self.fill_percent <= 100.0:
             raise ValueError(
@@ -56,29 +58,63 @@ class WasteBin:
     def is_full(self) -> bool:
         return self.fill_percent >= 100.0
 
-    def advance(self, elapsed_hours: float) -> None:
-        """Advance fill and waste age by physical elapsed time."""
+    def projected_fill_percent(
+        self,
+        elapsed_hours: float,
+    ) -> float:
+        """
+        Physical fill expected after elapsed time if the bin
+        remains uncollected.
+        """
 
         if elapsed_hours < 0.0:
             raise ValueError(
                 "elapsed_hours cannot be negative"
             )
 
-        self.fill_percent = min(
+        return min(
             100.0,
             self.fill_percent
             + self.fill_rate_percent_per_hour
             * elapsed_hours,
         )
 
+    def projected_waste_mass_tonnes(
+        self,
+        elapsed_hours: float,
+    ) -> float:
+        projected_fill = (
+            self.projected_fill_percent(
+                elapsed_hours
+            )
+        )
+
+        return (
+            self.full_mass_kg
+            * projected_fill
+            / 100.0
+            / 1000.0
+        )
+
+    def advance(self, elapsed_hours: float) -> None:
+        """Advance physical bin state."""
+
+        self.fill_percent = (
+            self.projected_fill_percent(
+                elapsed_hours
+            )
+        )
+
         self.waste_age_hours += elapsed_hours
 
     def collect(self) -> float:
         """
-        Empty the bin and return the collected mass in tonnes.
+        Empty the bin and return collected mass in tonnes.
         """
 
-        collected_mass = self.waste_mass_tonnes
+        collected_mass = (
+            self.waste_mass_tonnes
+        )
 
         self.fill_percent = 0.0
         self.waste_age_hours = 0.0
