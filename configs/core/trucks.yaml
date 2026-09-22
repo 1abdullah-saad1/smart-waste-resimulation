@@ -1,0 +1,8 @@
+count: 10
+capacity_tonnes: 10.0
+speed_km_per_hour: 30.0
+
+provenance:
+  count: manuscript
+  capacity_tonnes: manuscript
+  speed_km_per_hour: revised_benchmark

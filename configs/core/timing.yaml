@@ -1,0 +1,4 @@
+bin_service_time_seconds: 36.0
+
+provenance:
+  bin_service_time_seconds: revised_benchmark

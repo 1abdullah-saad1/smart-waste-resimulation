@@ -1,0 +1,10 @@
+tank_capacity_litres: 200.0
+efficiency_km_per_litre: 2.5
+refuel_rate_litres_per_minute: 60.0
+dynamic_return_reserve: true
+
+provenance:
+  tank_capacity_litres: revised_benchmark
+  efficiency_km_per_litre: manuscript
+  refuel_rate_litres_per_minute: revised_benchmark
+  dynamic_return_reserve: revised_model

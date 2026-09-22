@@ -1,0 +1,10 @@
+location_policy: central
+unloading_bays: 1
+queue_policy: FCFS
+unload_time_minutes: 11.0
+
+provenance:
+  location_policy: revised_benchmark
+  unloading_bays: revised_benchmark
+  queue_policy: revised_benchmark
+  unload_time_minutes: revised_benchmark

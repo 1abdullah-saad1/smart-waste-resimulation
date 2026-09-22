@@ -1,0 +1,6 @@
+area_km2: 50.0
+num_bins: 1000
+
+provenance:
+  area_km2: manuscript
+  num_bins: manuscript
