@@ -17,3 +17,18 @@ logs/*
 
 # Generated DQN model checkpoints
 results/models/
+
+# Python build/package artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Test / coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
