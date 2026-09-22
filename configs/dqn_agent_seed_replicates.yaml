@@ -1,0 +1,33 @@
+experiment:
+  name: dqn_confirmatory_agent_seed_replication
+  classification: confirmatory
+  template_config: configs/dqn_convergence.yaml
+
+  development_seed_excluded_from_confirmatory_statistics: 20260922
+
+  fixed_city_master_seed: 20260922
+  fixed_workload: true
+
+  planned_replicates: 10
+
+  agent_seeds:
+    - 20260923
+    - 20260924
+    - 20260925
+    - 20260926
+    - 20260927
+    - 20260928
+    - 20260929
+    - 20260930
+    - 20260931
+    - 20260932
+
+  inclusion_rule: >
+    Include every planned seed in the confirmatory analysis.
+    A run that reaches the maximum training budget without satisfying
+    convergence is retained and reported rather than discarded.
+
+  resume_policy: >
+    Completed replicates are never rerun. If execution is interrupted
+    during one replicate, only that incomplete replicate is restarted;
+    previously completed replicates are preserved.
