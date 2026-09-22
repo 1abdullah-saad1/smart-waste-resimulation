@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Iterable
 
 from smart_waste.collection.base import CollectionPolicy
 from smart_waste.models.events import (
@@ -67,6 +67,13 @@ class SimulationOrchestrator:
         default_factory=BinReservationBook
     )
 
+    # Optional routing-observation overrides.
+    #
+    # These values never mutate WasteBin physical truth. They are
+    # propagated consistently to every PolicyView created during
+    # this simulation run.
+    reported_fill_percent: Mapping[int, float] | None = None
+
     dispatch_history: list[DispatchResult] = field(
         default_factory=list,
         init=False,
@@ -104,6 +111,35 @@ class SimulationOrchestrator:
         # Reuse the canonical validation.
         service_duration_hours(
             self.service_time_seconds
+        )
+
+    def _build_policy_view(
+        self,
+        state: SimulationState | None = None,
+    ):
+        """
+        Build one policy snapshot using the run-wide coordination
+        and telemetry contract.
+
+        Keeping this construction centralized prevents initialize,
+        dispatch, callbacks, and completion checks from observing
+        different telemetry semantics.
+        """
+
+        active_state = (
+            self.state
+            if state is None
+            else state
+        )
+
+        return build_policy_view(
+            active_state,
+            reservations=(
+                self.reservation_book.snapshot()
+            ),
+            reported_fill_percent=(
+                self.reported_fill_percent
+            ),
         )
 
     def register_handlers(self) -> None:
@@ -154,12 +190,7 @@ class SimulationOrchestrator:
             return
 
         self.policy.initialize(
-            build_policy_view(
-                self.state,
-                reservations=(
-                    self.reservation_book.snapshot()
-                ),
-            )
+            self._build_policy_view()
         )
 
         self._policy_initialized = True
@@ -192,6 +223,9 @@ class SimulationOrchestrator:
             truck_id=truck_id,
             service_time_seconds=(
                 self.service_time_seconds
+            ),
+            reported_fill_percent=(
+                self.reported_fill_percent
             ),
         )
 
@@ -371,21 +405,17 @@ class SimulationOrchestrator:
         )
 
         self.policy.on_service_complete(
-            view=build_policy_view(
-                state,
-                reservations=(
-                    self.reservation_book.snapshot()
-                ),
+            view=self._build_policy_view(
+                state
             ),
             truck_id=truck_id,
             bin_id=bin_id,
         )
 
-        post_service_view = build_policy_view(
-            state,
-            reservations=(
-                self.reservation_book.snapshot()
-            ),
+        post_service_view = (
+            self._build_policy_view(
+                state
+            )
         )
 
         if self.policy.is_complete(
@@ -426,11 +456,10 @@ class SimulationOrchestrator:
         and depot-service layers.
         """
 
-        completion_view = build_policy_view(
-            state,
-            reservations=(
-                self.reservation_book.snapshot()
-            ),
+        completion_view = (
+            self._build_policy_view(
+                state
+            )
         )
 
         if not self.policy.is_complete(

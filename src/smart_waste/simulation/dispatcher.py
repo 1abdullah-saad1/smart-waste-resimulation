@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from dataclasses import dataclass
 from enum import Enum
 from math import isclose
@@ -179,6 +181,7 @@ def dispatch_next_for_truck(
     reservation_book: BinReservationBook,
     truck_id: int,
     service_time_seconds: float,
+    reported_fill_percent: Mapping[int, float] | None = None,
 ) -> DispatchResult:
     """
     Execute one policy decision through the physical gate.
@@ -216,6 +219,9 @@ def dispatch_next_for_truck(
         state,
         reservations=(
             reservation_book.snapshot()
+        ),
+        reported_fill_percent=(
+            reported_fill_percent
         ),
     )
 
