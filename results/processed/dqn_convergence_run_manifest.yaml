@@ -1,0 +1,61 @@
+experiment:
+  name: dqn_convergence_training
+  classification: single_seed_converged_run
+  status: frozen
+  agent_seed: 20260922
+  city_master_seed: 20260922
+
+training:
+  episodes_completed: 650
+  converged: true
+  stop_reason: convergence_criteria_satisfied
+  minimum_episodes: 300
+  maximum_episodes: 1000
+  convergence_window: 50
+  patience_windows: 3
+  epsilon_decay_episodes: 300
+
+final_training_window:
+  window_episodes: 50
+  reward_mean: 42.336957
+  reward_std: 5.648436
+  fuel_mean_litres: 89.386987
+  fuel_std_litres: 4.522959
+  distance_mean_km: 223.467468
+  distance_std_km: 11.307398
+
+final_frozen_greedy_evaluation:
+  episode: 650
+  reward: 42.846093
+  distance_km: 220.551656
+  fuel_litres: 88.220662
+  terminated: true
+  truncated: false
+
+final_convergence_check:
+  reward_slope: -0.06073513
+  loss_slope: 0.00008733
+  greedy_fuel_relative_change: 0.002090585007453136
+  consecutive_stable_checks: 3
+  required_stable_checks: 3
+
+artifacts:
+  training_episodes:
+    path: results/raw/dqn_convergence_training_episodes.csv
+    sha256: de7bb8e201ba441f39a29da2bfd39d66db4685f02a93ea0f73d2cf7145a52872
+
+  greedy_evaluations:
+    path: results/raw/dqn_convergence_greedy_evaluations.csv
+    sha256: 2fea4bd484b97cfd48ee2e31c2086ddd8ab76b2311f16cb72889284bb6555052
+
+  convergence_checks:
+    path: results/processed/dqn_convergence_checks.csv
+    sha256: 58bb725e925cb297c8d64146ffd2293b2e876fb554b3a59db5668e7a8c508bf9
+
+  final_model:
+    path: results/models/dqn_convergence_final.pt
+    sha256: 1dc0836a368ae98e4084bf8eec39b1fe4863606350faa1ddd003fe90b28736aa
+
+  protocol_snapshot:
+    path: results/processed/dqn_convergence_protocol_snapshot.yaml
+    sha256: e8a161a1792f8d25cf845c137ea8e555f2a22dc9965e797c1e85fda4e09ba3be
