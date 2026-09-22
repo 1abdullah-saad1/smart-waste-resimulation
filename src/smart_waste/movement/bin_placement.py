@@ -299,6 +299,7 @@ def select_network_maxmin_bin_nodes(
     *,
     depot_node: NodeId,
     bin_count: int,
+    candidate_nodes: tuple[NodeId, ...] | list[NodeId] | None = None,
 ) -> tuple[
     NodeId,
     ...,
@@ -335,14 +336,50 @@ def select_network_maxmin_bin_nodes(
 
     road_graph.validate_connected()
 
-    candidates = tuple(
+    if candidate_nodes is None:
+        raw_candidates = tuple(
+            road_graph.graph.nodes
+        )
+    else:
+        raw_candidates = tuple(
+            candidate_nodes
+        )
+
+    normalized_candidates = tuple(
         _normalize_node_id(
             node
         )
-        for node in sorted(
+        for node in raw_candidates
+    )
+
+    if len(
+        set(
+            normalized_candidates
+        )
+    ) != len(
+        normalized_candidates
+    ):
+        raise BinPlacementError(
+            "candidate_nodes must be unique"
+        )
+
+    missing_candidates = tuple(
+        node
+        for node in normalized_candidates
+        if node not in road_graph.graph
+    )
+
+    if missing_candidates:
+        raise BinPlacementError(
+            "candidate road nodes missing from road graph: "
+            f"{missing_candidates!r}"
+        )
+
+    candidates = tuple(
+        sorted(
             (
                 node
-                for node in road_graph.graph.nodes
+                for node in normalized_candidates
                 if node != depot_node
             ),
             key=canonical_node_sort_key,
@@ -475,6 +512,7 @@ def build_network_maxmin_bin_placement(
     *,
     depot_node: NodeId,
     bin_count: int,
+    candidate_nodes: tuple[NodeId, ...] | list[NodeId] | None = None,
 ) -> NetworkMaxMinPlacement:
     """
     Build auditable max-min placement and stable bin identities.
@@ -485,6 +523,7 @@ def build_network_maxmin_bin_placement(
             road_graph,
             depot_node=depot_node,
             bin_count=bin_count,
+            candidate_nodes=candidate_nodes,
         )
     )
 
