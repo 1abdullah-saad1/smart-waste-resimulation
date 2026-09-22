@@ -126,6 +126,25 @@ rl:
     # The manuscript value is missing.
     learning_rate: 0.001
 
-  sla:
-    full_bin_threshold_percent: 100.0
-    violation_after_hours: 6.0
+    sla:
+      full_bin_threshold_percent: 100.0
+      violation_after_hours: 6.0
+
+      # The manuscript references SLA_HAZARD_LIMIT but does not
+      # report its numerical value.
+      hazard_violation_after_hours: null
+
+      # Governance-layer rule from the manuscript.
+      challenge_window_hours: 48.0
+
+hazard:
+  emergency_fire_threshold_c: 70.0
+
+  # Reconstruction encoding for DQN state H_t.
+  # The manuscript defines hazard priority but does not
+  # define a numerical severity scale.
+  severity_encoding:
+    none: 0.0
+    excess_moisture: 1.0
+    predicted_combustion_risk: 2.0
+    emergency_fire: 3.0
