@@ -1,0 +1,6 @@
+volume_litres: 1100.0
+full_mass_kg: 440.0
+
+provenance:
+  volume_litres: technical_bin_specification
+  full_mass_kg: revised_benchmark_from_technical_range
