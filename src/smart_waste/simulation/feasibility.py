@@ -11,6 +11,9 @@ from smart_waste.models.truck import TruckStatus
 from smart_waste.movement.routing_distance import (
     road_distance_km,
 )
+from smart_waste.movement.travel_time import (
+    travel_time_hours,
+)
 from smart_waste.simulation.bin_service import (
     service_duration_hours,
 )
@@ -43,6 +46,9 @@ class CandidateFeasibility:
 
     distance_to_candidate_km: float
     candidate_to_depot_km: float
+
+    travel_time_to_candidate_hours: float
+    projected_collection_elapsed_hours: float
 
     required_fuel_litres: float
     fuel_remaining_litres: float
@@ -81,16 +87,18 @@ def evaluate_candidate_feasibility(
     service_time_seconds: float,
 ) -> CandidateFeasibility:
     """
-    Evaluate physical feasibility before dispatching a truck.
+    Evaluate physical feasibility before dispatch.
 
-    A candidate is feasible only if:
+    Capacity is evaluated using the waste mass expected at the
+    actual service-completion time:
 
-    1. the truck can carry the projected bin mass at service
-       completion, and
-    2. it has enough fuel to travel from its current position to
-       the candidate and then from the candidate back to depot.
+        current time
+        + road travel time to candidate
+        + physical bin-service duration
 
-    Physical distances are shortest-path road distances.
+    Fuel feasibility requires enough fuel for:
+
+        current position -> candidate -> depot
     """
 
     if truck_id not in state.trucks:
@@ -112,20 +120,6 @@ def evaluate_candidate_feasibility(
             "before candidate evaluation"
         )
 
-    service_hours = service_duration_hours(
-        service_time_seconds
-    )
-
-    projected_mass = (
-        bin_.projected_waste_mass_tonnes(
-            service_hours
-        )
-    )
-
-    capacity_feasible = truck.can_load(
-        projected_mass
-    )
-
     distance_to_candidate = road_distance_km(
         state.road_graph,
         truck.current_node,
@@ -136,6 +130,32 @@ def evaluate_candidate_feasibility(
         state.road_graph,
         bin_.road_node,
         state.depot.road_node,
+    )
+
+    travel_hours = travel_time_hours(
+        distance_km=distance_to_candidate,
+        speed_km_per_hour=(
+            truck.speed_km_per_hour
+        ),
+    )
+
+    service_hours = service_duration_hours(
+        service_time_seconds
+    )
+
+    projected_elapsed_hours = (
+        travel_hours
+        + service_hours
+    )
+
+    projected_mass = (
+        bin_.projected_waste_mass_tonnes(
+            projected_elapsed_hours
+        )
+    )
+
+    capacity_feasible = truck.can_load(
+        projected_mass
     )
 
     required_fuel = (
@@ -174,6 +194,12 @@ def evaluate_candidate_feasibility(
         candidate_to_depot_km=(
             candidate_to_depot
         ),
+        travel_time_to_candidate_hours=(
+            travel_hours
+        ),
+        projected_collection_elapsed_hours=(
+            projected_elapsed_hours
+        ),
         required_fuel_litres=required_fuel,
         fuel_remaining_litres=(
             truck.fuel_remaining_litres
@@ -186,9 +212,7 @@ def fuel_required_to_depot_litres(
     state: SimulationState,
     truck_id: int,
 ) -> float:
-    """
-    Fuel required for an immediate safe return to depot.
-    """
+    """Fuel required for an immediate safe return to depot."""
 
     if truck_id not in state.trucks:
         raise FeasibilityError(

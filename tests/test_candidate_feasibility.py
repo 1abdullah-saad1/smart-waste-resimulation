@@ -186,11 +186,11 @@ def test_combined_capacity_and_fuel_failure() -> None:
     )
 
 
-def test_capacity_uses_projected_service_mass() -> None:
+def test_capacity_uses_projected_travel_and_service_mass() -> None:
     state = make_state(
-        truck_load_tonnes=9.778,
+        truck_load_tonnes=9.73,
         fill_percent=50.0,
-        fill_rate=100.0,
+        fill_rate=20.0,
     )
 
     result = evaluate_candidate_feasibility(
@@ -200,15 +200,45 @@ def test_capacity_uses_projected_service_mass() -> None:
         service_time_seconds=SERVICE_SECONDS,
     )
 
-    # Initial bin mass = 0.2200 t.
-    # At service completion fill = 51%, mass = 0.2244 t.
+    # Travel:
+    # 20 km / 30 km/h = 2/3 h.
+    #
+    # Service:
+    # 36 s = 0.01 h.
+    #
+    # Projection horizon:
+    # 0.666666... + 0.01 = 0.676666... h.
+    #
+    # Fill:
+    # 50 + 20 * 0.676666... = 63.533333...%.
+    #
+    # Mass:
+    # 0.44 * 0.63533333... = 0.279546666... t.
+    assert (
+        result.travel_time_to_candidate_hours
+        == pytest.approx(20.0 / 30.0)
+    )
+
+    assert (
+        result.projected_collection_elapsed_hours
+        == pytest.approx(
+            (20.0 / 30.0) + 0.01
+        )
+    )
+
     assert (
         result.projected_collection_mass_tonnes
-        == pytest.approx(0.2244)
+        == pytest.approx(
+            0.2795466666666667
+        )
+    )
+
+    # Truck has only 0.27 t remaining.
+    assert result.remaining_capacity_tonnes == pytest.approx(
+        0.27
     )
 
     assert not result.capacity_feasible
-
 
 def test_feasibility_uses_road_distance() -> None:
     state = make_state()

@@ -306,7 +306,7 @@ def test_policy_cannot_bypass_fuel_gate() -> None:
     assert state.trucks[0].destination_node == "depot"
 
 
-def test_policy_complete_marks_truck_finished() -> None:
+def test_policy_complete_away_from_depot_schedules_final_return() -> None:
     state = make_state()
     queue = EventQueue()
 
@@ -321,14 +321,23 @@ def test_policy_complete_marks_truck_finished() -> None:
         service_time_seconds=SERVICE_SECONDS,
     )
 
+    assert result.action == DispatchAction.DEPOT_RETURN
+
     assert (
-        result.action
-        == DispatchAction.POLICY_COMPLETE
+        result.depot_return_reason
+        == DepotReturnReason.ROUTINE
     )
 
-    assert state.trucks[0].status == TruckStatus.FINISHED
-    assert len(queue) == 0
+    assert result.event is not None
+    assert result.event.event_type == EventType.DEPOT_ARRIVAL
 
+    truck = state.trucks[0]
+
+    assert truck.status == TruckStatus.TRAVELLING
+    assert truck.current_node == "truck-node"
+    assert truck.destination_node == "depot"
+
+    assert len(queue) == 1
 
 def test_none_candidate_does_not_schedule_physics() -> None:
     state = make_state()
@@ -471,3 +480,28 @@ def test_full_tank_at_depot_cannot_fix_unreachable_candidate() -> None:
     assert len(queue) == 0
     assert state.trucks[0].status == TruckStatus.IDLE
     assert state.trucks[0].current_node == "depot"
+
+
+def test_policy_complete_at_settled_depot_finishes_truck() -> None:
+    state = make_state(
+        truck_node="depot",
+        truck_load_tonnes=0.0,
+        fuel_litres=200.0,
+    )
+
+    queue = EventQueue()
+
+    result = dispatch_next_for_truck(
+        state=state,
+        event_queue=queue,
+        policy=FixedBinPolicy(
+            None,
+            complete=True,
+        ),
+        truck_id=0,
+        service_time_seconds=SERVICE_SECONDS,
+    )
+
+    assert result.action == DispatchAction.POLICY_COMPLETE
+    assert state.trucks[0].status == TruckStatus.FINISHED
+    assert len(queue) == 0

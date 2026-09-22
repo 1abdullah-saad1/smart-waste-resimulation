@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from math import isclose
 
 from smart_waste.collection.base import CollectionPolicy
 from smart_waste.models.events import SimulationEvent
@@ -68,20 +69,50 @@ def _depot_reason_from_failure(
     )
 
 
+def _truck_is_terminally_settled(
+    *,
+    state: SimulationState,
+    truck_id: int,
+) -> bool:
+    """
+    A completed truck is terminal only after it is physically
+    back at depot, unloaded and fully refuelled.
+    """
+
+    truck = state.trucks[truck_id]
+
+    at_depot = (
+        truck.current_node
+        == state.depot.road_node
+    )
+
+    empty = isclose(
+        truck.current_load_tonnes,
+        0.0,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    )
+
+    full_tank = isclose(
+        truck.fuel_remaining_litres,
+        truck.fuel_capacity_litres,
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    )
+
+    return (
+        at_depot
+        and empty
+        and full_tank
+    )
+
+
 def _validate_recoverable_depot_return(
     *,
     state: SimulationState,
     truck_id: int,
     failure: FeasibilityFailure,
 ) -> None:
-    """
-    Ensure an infeasible candidate can be resolved safely by
-    returning to the depot.
-
-    This prevents the dispatcher from scheduling a depot return
-    when the truck itself no longer has enough fuel to reach depot.
-    """
-
     truck = state.trucks[truck_id]
 
     if not can_return_to_depot(
@@ -115,8 +146,12 @@ def _validate_recoverable_depot_return(
             FeasibilityFailure.FUEL,
             FeasibilityFailure.CAPACITY_AND_FUEL,
         }
-        and truck.fuel_remaining_litres
-        >= truck.fuel_capacity_litres
+        and isclose(
+            truck.fuel_remaining_litres,
+            truck.fuel_capacity_litres,
+            rel_tol=1e-12,
+            abs_tol=1e-12,
+        )
     )
 
     if capacity_unrecoverable:
@@ -141,16 +176,11 @@ def dispatch_next_for_truck(
     service_time_seconds: float,
 ) -> DispatchResult:
     """
-    Request and safely dispatch one policy decision.
+    Execute one policy decision through the physical gate.
 
-    Collection policy chooses only the desired bin.
-
-    The dispatcher retains exclusive authority over:
-    - candidate validation,
-    - capacity feasibility,
-    - dynamic fuel reserve,
-    - depot-return decisions,
-    - physical movement scheduling.
+    Policy completion does not mean instantaneous truck
+    termination. A truck must first return to depot, unload and
+    refuel before FINISHED can be assigned.
     """
 
     if truck_id not in state.trucks:
@@ -168,11 +198,38 @@ def dispatch_next_for_truck(
     view = build_policy_view(state)
 
     if policy.is_complete(view):
-        truck.status = TruckStatus.FINISHED
+        if _truck_is_terminally_settled(
+            state=state,
+            truck_id=truck_id,
+        ):
+            truck.status = TruckStatus.FINISHED
+
+            return DispatchResult(
+                truck_id=truck_id,
+                action=DispatchAction.POLICY_COMPLETE,
+            )
+
+        if not can_return_to_depot(
+            state=state,
+            truck_id=truck_id,
+        ):
+            raise DispatchError(
+                f"truck {truck_id} completed policy work "
+                "but cannot safely return to depot"
+            )
+
+        event = schedule_depot_return(
+            state=state,
+            event_queue=event_queue,
+            truck_id=truck_id,
+            reason=DepotReturnReason.ROUTINE,
+        )
 
         return DispatchResult(
             truck_id=truck_id,
-            action=DispatchAction.POLICY_COMPLETE,
+            action=DispatchAction.DEPOT_RETURN,
+            depot_return_reason=DepotReturnReason.ROUTINE,
+            event=event,
         )
 
     requested_bin_id = policy.select_next_bin(
