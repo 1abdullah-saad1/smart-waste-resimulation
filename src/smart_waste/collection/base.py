@@ -19,6 +19,20 @@ class BinPolicyView:
     fill_percent: float
     fill_rate_percent_per_hour: float
     waste_mass_tonnes: float
+    reserved_by_truck_id: int | None = None
+
+    @property
+    def is_reserved(self) -> bool:
+        return self.reserved_by_truck_id is not None
+
+    def is_reserved_by(
+        self,
+        truck_id: int,
+    ) -> bool:
+        return (
+            self.reserved_by_truck_id
+            == truck_id
+        )
 
 
 @dataclass(frozen=True)

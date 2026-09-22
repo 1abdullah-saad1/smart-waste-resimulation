@@ -29,6 +29,9 @@ from smart_waste.simulation.movement import (
 from smart_waste.simulation.policy_view import (
     build_policy_view,
 )
+from smart_waste.simulation.reservations import (
+    BinReservationBook,
+)
 from smart_waste.simulation.state import SimulationState
 
 
@@ -58,6 +61,10 @@ class SimulationOrchestrator:
 
     depot_state: DepotServiceState = field(
         default_factory=DepotServiceState
+    )
+
+    reservation_book: BinReservationBook = field(
+        default_factory=BinReservationBook
     )
 
     dispatch_history: list[DispatchResult] = field(
@@ -148,7 +155,10 @@ class SimulationOrchestrator:
 
         self.policy.initialize(
             build_policy_view(
-                self.state
+                self.state,
+                reservations=(
+                    self.reservation_book.snapshot()
+                ),
             )
         )
 
@@ -176,6 +186,9 @@ class SimulationOrchestrator:
             state=self.state,
             event_queue=self.engine.event_queue,
             policy=self.policy,
+            reservation_book=(
+                self.reservation_book
+            ),
             truck_id=truck_id,
             service_time_seconds=(
                 self.service_time_seconds
@@ -283,6 +296,16 @@ class SimulationOrchestrator:
                 "dispatched bin arrival is missing target_bin_id"
             )
 
+        owner = self.reservation_book.owner(
+            target_bin_id
+        )
+
+        if owner != event.entity_id:
+            raise OrchestratorError(
+                f"bin {target_bin_id} reservation owner "
+                f"is {owner}, expected truck {event.entity_id}"
+            )
+
         schedule_bin_service(
             state=state,
             event_queue=self.engine.event_queue,
@@ -332,9 +355,27 @@ class SimulationOrchestrator:
             )
         )
 
+        owner = self.reservation_book.owner(
+            bin_id
+        )
+
+        if owner != truck_id:
+            raise OrchestratorError(
+                f"completed bin {bin_id} reservation owner "
+                f"is {owner}, expected truck {truck_id}"
+            )
+
+        self.reservation_book.release(
+            bin_id=bin_id,
+            truck_id=truck_id,
+        )
+
         self.policy.on_service_complete(
             view=build_policy_view(
-                state
+                state,
+                reservations=(
+                    self.reservation_book.snapshot()
+                ),
             ),
             truck_id=truck_id,
             bin_id=bin_id,

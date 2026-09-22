@@ -22,6 +22,7 @@ from smart_waste.simulation.dispatcher import (
     dispatch_next_for_truck,
 )
 from smart_waste.simulation.event_queue import EventQueue
+from smart_waste.simulation.reservations import BinReservationBook
 from smart_waste.simulation.state import SimulationState
 
 
@@ -140,6 +141,7 @@ def test_feasible_policy_request_schedules_bin_trip() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -162,6 +164,7 @@ def test_dispatch_does_not_teleport_truck() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -181,6 +184,7 @@ def test_target_bin_id_is_preserved_in_event_metadata() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -199,6 +203,7 @@ def test_capacity_failure_forces_depot_return() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -230,6 +235,7 @@ def test_fuel_failure_forces_depot_return() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -254,6 +260,7 @@ def test_combined_failure_forces_combined_return() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -277,6 +284,7 @@ def test_policy_cannot_bypass_capacity_gate() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -297,6 +305,7 @@ def test_policy_cannot_bypass_fuel_gate() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(0),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -317,6 +326,7 @@ def test_policy_complete_away_from_depot_schedules_final_return() -> None:
             None,
             complete=True,
         ),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -347,6 +357,7 @@ def test_none_candidate_does_not_schedule_physics() -> None:
         state=state,
         event_queue=queue,
         policy=FixedBinPolicy(None),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )
@@ -365,6 +376,7 @@ def test_unknown_bin_requested_by_policy_is_rejected() -> None:
             state=state,
             event_queue=queue,
             policy=FixedBinPolicy(999),
+            reservation_book=BinReservationBook(),
             truck_id=0,
             service_time_seconds=SERVICE_SECONDS,
         )
@@ -386,6 +398,7 @@ def test_busy_truck_cannot_be_dispatched() -> None:
             state=state,
             event_queue=queue,
             policy=FixedBinPolicy(0),
+            reservation_book=BinReservationBook(),
             truck_id=0,
             service_time_seconds=SERVICE_SECONDS,
         )
@@ -406,6 +419,7 @@ def test_truck_without_safe_depot_return_is_rejected() -> None:
             state=state,
             event_queue=queue,
             policy=FixedBinPolicy(0),
+            reservation_book=BinReservationBook(),
             truck_id=0,
             service_time_seconds=SERVICE_SECONDS,
         )
@@ -432,6 +446,7 @@ def test_empty_truck_at_depot_cannot_fix_capacity_impossibility() -> None:
             state=state,
             event_queue=queue,
             policy=FixedBinPolicy(0),
+            reservation_book=BinReservationBook(),
             truck_id=0,
             service_time_seconds=SERVICE_SECONDS,
         )
@@ -473,6 +488,7 @@ def test_full_tank_at_depot_cannot_fix_unreachable_candidate() -> None:
             state=state,
             event_queue=queue,
             policy=FixedBinPolicy(0),
+            reservation_book=BinReservationBook(),
             truck_id=0,
             service_time_seconds=SERVICE_SECONDS,
         )
@@ -498,6 +514,7 @@ def test_policy_complete_at_settled_depot_finishes_truck() -> None:
             None,
             complete=True,
         ),
+        reservation_book=BinReservationBook(),
         truck_id=0,
         service_time_seconds=SERVICE_SECONDS,
     )

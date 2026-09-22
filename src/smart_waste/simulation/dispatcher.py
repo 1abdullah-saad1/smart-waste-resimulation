@@ -24,6 +24,10 @@ from smart_waste.simulation.movement import (
 from smart_waste.simulation.policy_view import (
     build_policy_view,
 )
+from smart_waste.simulation.reservations import (
+    BinReservationBook,
+    ReservationError,
+)
 from smart_waste.simulation.state import SimulationState
 
 
@@ -172,6 +176,7 @@ def dispatch_next_for_truck(
     state: SimulationState,
     event_queue: EventQueue,
     policy: CollectionPolicy,
+    reservation_book: BinReservationBook,
     truck_id: int,
     service_time_seconds: float,
 ) -> DispatchResult:
@@ -195,7 +200,24 @@ def dispatch_next_for_truck(
             f"truck {truck_id} must be idle before dispatch"
         )
 
-    view = build_policy_view(state)
+    existing_reservation = (
+        reservation_book.bin_for_truck(
+            truck_id
+        )
+    )
+
+    if existing_reservation is not None:
+        raise DispatchError(
+            f"truck {truck_id} already reserves "
+            f"bin {existing_reservation}"
+        )
+
+    view = build_policy_view(
+        state,
+        reservations=(
+            reservation_book.snapshot()
+        ),
+    )
 
     if policy.is_complete(view):
         if _truck_is_terminally_settled(
@@ -254,6 +276,18 @@ def dispatch_next_for_truck(
             f"{requested_bin_id}"
         )
 
+    reservation_owner = (
+        reservation_book.owner(
+            requested_bin_id
+        )
+    )
+
+    if reservation_owner is not None:
+        raise DispatchError(
+            f"policy requested bin {requested_bin_id}, "
+            f"already reserved by truck {reservation_owner}"
+        )
+
     feasibility = evaluate_candidate_feasibility(
         state=state,
         truck_id=truck_id,
@@ -266,15 +300,34 @@ def dispatch_next_for_truck(
             requested_bin_id
         ]
 
-        event = schedule_truck_travel(
-            state=state,
-            event_queue=event_queue,
-            truck_id=truck_id,
-            destination_node=target_bin.road_node,
-            metadata={
-                "target_bin_id": requested_bin_id,
-            },
-        )
+        try:
+            reservation_book.reserve(
+                bin_id=requested_bin_id,
+                truck_id=truck_id,
+            )
+
+            event = schedule_truck_travel(
+                state=state,
+                event_queue=event_queue,
+                truck_id=truck_id,
+                destination_node=target_bin.road_node,
+                metadata={
+                    "target_bin_id": requested_bin_id,
+                },
+            )
+        except Exception:
+            if (
+                reservation_book.owner(
+                    requested_bin_id
+                )
+                == truck_id
+            ):
+                reservation_book.release(
+                    bin_id=requested_bin_id,
+                    truck_id=truck_id,
+                )
+
+            raise
 
         return DispatchResult(
             truck_id=truck_id,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from smart_waste.collection.base import (
     BinPolicyView,
     PolicyView,
@@ -12,13 +14,21 @@ from smart_waste.simulation.state import (
 
 def build_policy_view(
     state: SimulationState,
+    *,
+    reservations: Mapping[int, int] | None = None,
 ) -> PolicyView:
     """
     Build a deterministic read-only policy snapshot.
 
-    Bins and trucks are sorted by their stable identifiers so
-    policy behavior never depends on dictionary insertion order.
+    Reservation information is copied as scalar coordination
+    metadata. Policies never receive mutable simulation objects.
     """
+
+    reservation_map = (
+        {}
+        if reservations is None
+        else dict(reservations)
+    )
 
     bins = tuple(
         BinPolicyView(
@@ -32,6 +42,11 @@ def build_policy_view(
             ),
             waste_mass_tonnes=float(
                 bin_.waste_mass_tonnes
+            ),
+            reserved_by_truck_id=(
+                reservation_map.get(
+                    bin_.bin_id
+                )
             ),
         )
         for bin_ in sorted(
