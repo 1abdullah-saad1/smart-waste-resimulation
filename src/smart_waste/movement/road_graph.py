@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 import networkx as nx
 
@@ -47,9 +48,21 @@ class RoadGraph:
                     f"{self.length_attribute!r}"
                 )
 
-            length = float(
-                data[self.length_attribute]
-            )
+            try:
+                length = float(
+                    data[self.length_attribute]
+                )
+            except (TypeError, ValueError) as exc:
+                raise RoadGraphError(
+                    f"edge ({source!r}, {target!r}) "
+                    "has nonnumeric physical length"
+                ) from exc
+
+            if not isfinite(length):
+                raise RoadGraphError(
+                    f"edge ({source!r}, {target!r}) "
+                    "must have finite physical length"
+                )
 
             if length <= 0.0:
                 raise RoadGraphError(
