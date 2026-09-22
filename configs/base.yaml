@@ -81,3 +81,51 @@ evaluation:
   attack_replicates: 100
   confidence_level: 0.95
   paired_attack_severities: true
+
+rl:
+  state:
+    active_truck_location: true
+    verified_fill_level: true
+    hazard_severity: true
+    elapsed_full_bin_time: true
+
+  candidates:
+    near_full_threshold_percent: 90.0
+    predictive_fill_min_percent: 75.0
+    predictive_fill_max_percent: 80.0
+    exclude_unverified_events: true
+    critical_hazard_override: true
+
+  reward:
+    collection_weight: 1.0
+    distance_weight: 0.5
+    hazard_delay_weight: 5.0
+    sla_violation_weight: 3.0
+
+  dqn:
+    hidden_layers:
+      - 256
+      - 128
+      - 64
+
+    activation: relu
+    output_activation: linear
+
+    discount_factor: 0.95
+    replay_buffer_size: 100000
+    batch_size: 64
+
+    epsilon_start: 1.0
+    epsilon_end: 0.01
+
+    optimizer: adam
+
+    episodes: 100
+
+    # Reconstruction assumption.
+    # The manuscript value is missing.
+    learning_rate: 0.001
+
+  sla:
+    full_bin_threshold_percent: 100.0
+    violation_after_hours: 6.0

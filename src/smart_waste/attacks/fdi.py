@@ -17,6 +17,11 @@ AttackType = Literal[
     "authenticated_compromise",
 ]
 
+AttackSelectionMode = Literal[
+    "paired_nested",
+    "independent_by_rate",
+]
+
 
 @dataclass(frozen=True)
 class FDIEvent:
@@ -88,6 +93,7 @@ def generate_fdi_attack(
     master_seed: int,
     attack_rate: float,
     attack_type: AttackType,
+    selection_mode: AttackSelectionMode = "paired_nested",
     forged_fill_percent: float = 100.0,
     threshold_percent: float = 80.0,
     replicate_id: int = 0,
@@ -141,11 +147,25 @@ def generate_fdi_attack(
     # attack_rate is deliberately NOT part of this namespace.
     # Therefore all attack severities within one replicate use
     # the same random node ordering.
-    namespace = (
-        f"fdi:"
-        f"{attack_type}:"
-        f"replicate:{replicate_id}"
-    )
+    if selection_mode == "paired_nested":
+        namespace = (
+            f"fdi:"
+            f"{attack_type}:"
+            f"replicate:{replicate_id}"
+        )
+
+    elif selection_mode == "independent_by_rate":
+        namespace = (
+            f"fdi:"
+            f"{attack_type}:"
+            f"rate:{attack_rate:.6f}:"
+            f"replicate:{replicate_id}"
+        )
+
+    else:
+        raise ValueError(
+            f"unsupported selection_mode: {selection_mode}"
+        )
 
     selection_seed = derive_seed(
         master_seed,

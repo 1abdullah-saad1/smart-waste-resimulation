@@ -235,3 +235,29 @@ def test_different_replicates_change_attack_selection():
 
     assert a.selection_seed != b.selection_seed
     assert a.attacked_bin_ids != b.attacked_bin_ids
+
+def test_independent_by_rate_uses_different_seeds():
+    city = make_city()
+
+    attack_10 = generate_fdi_attack(
+        city,
+        master_seed=MASTER_SEED,
+        attack_rate=0.10,
+        attack_type="external_unauthenticated",
+        replicate_id=5,
+        selection_mode="independent_by_rate",
+    )
+
+    attack_15 = generate_fdi_attack(
+        city,
+        master_seed=MASTER_SEED,
+        attack_rate=0.15,
+        attack_type="external_unauthenticated",
+        replicate_id=5,
+        selection_mode="independent_by_rate",
+    )
+
+    assert (
+        attack_10.selection_seed
+        != attack_15.selection_seed
+    )
