@@ -19,7 +19,7 @@ route_construction:
   two_opt_epsilon: 1.0e-12
 
 balancing:
-  enabled: false
+  enabled: true
   phase: phase_4b
   boundary_candidate_count: 10
   target_relative_range: 0.10
@@ -27,6 +27,10 @@ balancing:
     primary: route_distance_range
     secondary: total_route_distance
   fixed_initial_boundaries: true
+  exchange_mode: pairwise_one_for_one
+  preserve_bins_per_zone: true
+  candidate_refresh_after_each_exchange: true
+  search: deterministic_best_improvement
 
 provenance:
   strategy: revised_benchmark

@@ -1333,3 +1333,759 @@ def build_boundary_candidates(
     return tuple(
         results
     )
+
+
+@dataclass(frozen=True)
+class TSRZoneExchange:
+    """One accepted deterministic adjacent-zone exchange."""
+
+    iteration: int
+    boundary_index: int
+
+    left_truck_id: int
+    right_truck_id: int
+
+    left_bin_to_right: int
+    right_bin_to_left: int
+
+    objective_before: TSRBalanceObjective
+    objective_after: TSRBalanceObjective
+
+
+@dataclass(frozen=True)
+class TSRBalanceResult:
+    """
+    Complete deterministic result of TSR adjacent-zone balancing.
+    """
+
+    initial_zones: tuple[TSRZone, ...]
+    final_zones: tuple[TSRZone, ...]
+
+    boundaries: tuple[TSRBoundary, ...]
+
+    initial_routes: tuple[TSRRoute, ...]
+    final_routes: tuple[TSRRoute, ...]
+
+    initial_objective: TSRBalanceObjective
+    final_objective: TSRBalanceObjective
+
+    target_relative_range: float
+    target_met: bool
+
+    exchanges: tuple[
+        TSRZoneExchange,
+        ...,
+    ]
+
+    @property
+    def iterations(self) -> int:
+        return len(
+            self.exchanges
+        )
+
+
+def _objective_is_strictly_better(
+    candidate: TSRBalanceObjective,
+    incumbent: TSRBalanceObjective,
+    *,
+    epsilon: float,
+) -> bool:
+    """
+    Compare objectives using the predeclared lexicographic rule
+    while protecting against floating-point noise.
+    """
+
+    if epsilon < 0.0:
+        raise ValueError(
+            "epsilon cannot be negative"
+        )
+
+    if (
+        candidate.distance_range_km
+        < incumbent.distance_range_km
+        - epsilon
+    ):
+        return True
+
+    if (
+        abs(
+            candidate.distance_range_km
+            - incumbent.distance_range_km
+        )
+        <= epsilon
+        and candidate.total_distance_km
+        < incumbent.total_distance_km
+        - epsilon
+    ):
+        return True
+
+    return False
+
+
+def _objectives_equivalent(
+    first: TSRBalanceObjective,
+    second: TSRBalanceObjective,
+    *,
+    epsilon: float,
+) -> bool:
+    return (
+        abs(
+            first.distance_range_km
+            - second.distance_range_km
+        )
+        <= epsilon
+        and abs(
+            first.total_distance_km
+            - second.total_distance_km
+        )
+        <= epsilon
+    )
+
+
+def _exchange_zone_bins(
+    *,
+    left_zone: TSRZone,
+    right_zone: TSRZone,
+    left_bin_id: int,
+    right_bin_id: int,
+) -> tuple[
+    TSRZone,
+    TSRZone,
+]:
+    """
+    Perform a one-for-one exchange while preserving zone sizes.
+    """
+
+    if left_bin_id not in left_zone.bin_ids:
+        raise TSRPlanningError(
+            f"bin {left_bin_id} does not belong to "
+            f"truck {left_zone.truck_id}"
+        )
+
+    if right_bin_id not in right_zone.bin_ids:
+        raise TSRPlanningError(
+            f"bin {right_bin_id} does not belong to "
+            f"truck {right_zone.truck_id}"
+        )
+
+    if left_bin_id == right_bin_id:
+        raise TSRPlanningError(
+            "cannot exchange a bin with itself"
+        )
+
+    left_ids = [
+        bin_id
+        for bin_id in left_zone.bin_ids
+        if bin_id != left_bin_id
+    ]
+
+    left_ids.append(
+        right_bin_id
+    )
+
+    right_ids = [
+        bin_id
+        for bin_id in right_zone.bin_ids
+        if bin_id != right_bin_id
+    ]
+
+    right_ids.append(
+        left_bin_id
+    )
+
+    new_left = TSRZone(
+        truck_id=left_zone.truck_id,
+        bin_ids=tuple(
+            sorted(
+                left_ids
+            )
+        ),
+    )
+
+    new_right = TSRZone(
+        truck_id=right_zone.truck_id,
+        bin_ids=tuple(
+            sorted(
+                right_ids
+            )
+        ),
+    )
+
+    if (
+        len(new_left.bin_ids)
+        != len(left_zone.bin_ids)
+        or len(new_right.bin_ids)
+        != len(right_zone.bin_ids)
+    ):
+        raise TSRPlanningError(
+            "TSR exchange changed zone size"
+        )
+
+    if set(
+        new_left.bin_ids
+    ) & set(
+        new_right.bin_ids
+    ):
+        raise TSRPlanningError(
+            "TSR exchange created overlapping zones"
+        )
+
+    return (
+        new_left,
+        new_right,
+    )
+
+
+def _replace_two_zones(
+    *,
+    zones: Sequence[TSRZone],
+    left_zone: TSRZone,
+    right_zone: TSRZone,
+) -> tuple[TSRZone, ...]:
+    replacements = {
+        left_zone.truck_id: left_zone,
+        right_zone.truck_id: right_zone,
+    }
+
+    result = tuple(
+        replacements.get(
+            zone.truck_id,
+            zone,
+        )
+        for zone in zones
+    )
+
+    return tuple(
+        sorted(
+            result,
+            key=lambda zone: zone.truck_id,
+        )
+    )
+
+
+def _replace_two_routes(
+    *,
+    routes: Sequence[TSRRoute],
+    left_route: TSRRoute,
+    right_route: TSRRoute,
+) -> tuple[TSRRoute, ...]:
+    replacements = {
+        left_route.truck_id: left_route,
+        right_route.truck_id: right_route,
+    }
+
+    result = tuple(
+        replacements.get(
+            route.truck_id,
+            route,
+        )
+        for route in routes
+    )
+
+    return tuple(
+        sorted(
+            result,
+            key=lambda route: route.truck_id,
+        )
+    )
+
+
+def _validate_balanced_zone_invariants(
+    *,
+    initial_zones: Sequence[TSRZone],
+    candidate_zones: Sequence[TSRZone],
+) -> None:
+    """
+    Ensure balancing changes assignment only, never cardinality
+    or bin population.
+    """
+
+    initial = tuple(
+        sorted(
+            initial_zones,
+            key=lambda zone: zone.truck_id,
+        )
+    )
+
+    candidate = tuple(
+        sorted(
+            candidate_zones,
+            key=lambda zone: zone.truck_id,
+        )
+    )
+
+    if len(initial) != len(candidate):
+        raise TSRPlanningError(
+            "balancing changed number of TSR zones"
+        )
+
+    if tuple(
+        zone.truck_id
+        for zone in initial
+    ) != tuple(
+        zone.truck_id
+        for zone in candidate
+    ):
+        raise TSRPlanningError(
+            "balancing changed TSR truck identities"
+        )
+
+    initial_sizes = {
+        zone.truck_id: len(
+            zone.bin_ids
+        )
+        for zone in initial
+    }
+
+    candidate_sizes = {
+        zone.truck_id: len(
+            zone.bin_ids
+        )
+        for zone in candidate
+    }
+
+    if initial_sizes != candidate_sizes:
+        raise TSRPlanningError(
+            "balancing changed bins-per-truck"
+        )
+
+    initial_bins = sorted(
+        bin_id
+        for zone in initial
+        for bin_id in zone.bin_ids
+    )
+
+    candidate_bins = sorted(
+        bin_id
+        for zone in candidate
+        for bin_id in zone.bin_ids
+    )
+
+    if initial_bins != candidate_bins:
+        raise TSRPlanningError(
+            "balancing changed global bin population"
+        )
+
+    if len(candidate_bins) != len(
+        set(candidate_bins)
+    ):
+        raise TSRPlanningError(
+            "balancing duplicated bin assignments"
+        )
+
+
+def balance_adjacent_zones(
+    *,
+    zones: Sequence[TSRZone],
+    view: PolicyView,
+    road_graph: RoadGraph,
+    candidate_count: int = 10,
+    target_relative_range: float = 0.10,
+    two_opt_epsilon: float = 1.0e-12,
+) -> TSRBalanceResult:
+    """
+    Deterministically balance static TSR zones.
+
+    Algorithm
+    ---------
+    1. Freeze longitudinal boundaries from the initial partition.
+    2. Compute NN + deterministic 2-opt route for every zone.
+    3. For each adjacent boundary, identify the nearest
+       candidate_count bins from both current zones.
+    4. Evaluate every one-for-one candidate exchange.
+    5. Re-plan only the two affected routes.
+    6. Evaluate the GLOBAL lexicographic objective:
+           a) minimum max-min route-distance range,
+           b) minimum total route distance.
+    7. Apply exactly one globally best strict improvement.
+    8. Refresh boundary candidates around the same frozen
+       boundaries and repeat.
+    9. Stop when:
+           - the <= target_relative_range target is achieved, or
+           - no strict improving exchange exists.
+
+    If the engineering balance target cannot be achieved,
+    target_met is False and the deterministic best solution
+    reached by the declared search is retained.
+    """
+
+    if candidate_count <= 0:
+        raise ValueError(
+            "candidate_count must be positive"
+        )
+
+    if target_relative_range < 0.0:
+        raise ValueError(
+            "target_relative_range cannot be negative"
+        )
+
+    if two_opt_epsilon < 0.0:
+        raise ValueError(
+            "two_opt_epsilon cannot be negative"
+        )
+
+    initial_zones = tuple(
+        sorted(
+            zones,
+            key=lambda zone: zone.truck_id,
+        )
+    )
+
+    if not initial_zones:
+        raise TSRPlanningError(
+            "balancing requires at least one TSR zone"
+        )
+
+    initial_routes = plan_all_zone_routes(
+        zones=initial_zones,
+        view=view,
+        road_graph=road_graph,
+        two_opt_epsilon=two_opt_epsilon,
+    )
+
+    initial_objective = tsr_balance_objective(
+        initial_routes
+    )
+
+    boundaries = build_longitudinal_boundaries(
+        zones=initial_zones,
+        view=view,
+        road_graph=road_graph,
+    )
+
+    current_zones = initial_zones
+    current_routes = initial_routes
+    current_objective = initial_objective
+
+    exchanges: list[
+        TSRZoneExchange
+    ] = []
+
+    if current_objective.target_met(
+        target_relative_range,
+        epsilon=two_opt_epsilon,
+    ):
+        return TSRBalanceResult(
+            initial_zones=initial_zones,
+            final_zones=current_zones,
+            boundaries=boundaries,
+            initial_routes=initial_routes,
+            final_routes=current_routes,
+            initial_objective=initial_objective,
+            final_objective=current_objective,
+            target_relative_range=(
+                target_relative_range
+            ),
+            target_met=True,
+            exchanges=(),
+        )
+
+    while True:
+        candidate_groups = (
+            build_boundary_candidates(
+                zones=current_zones,
+                boundaries=boundaries,
+                view=view,
+                road_graph=road_graph,
+                candidate_count=candidate_count,
+            )
+        )
+
+        zone_by_truck = {
+            zone.truck_id: zone
+            for zone in current_zones
+        }
+
+        best_zones: tuple[
+            TSRZone,
+            ...,
+        ] | None = None
+
+        best_routes: tuple[
+            TSRRoute,
+            ...,
+        ] | None = None
+
+        best_objective: (
+            TSRBalanceObjective
+            | None
+        ) = None
+
+        best_key: (
+            tuple[int, int, int]
+            | None
+        ) = None
+
+        best_exchange_data: (
+            tuple[
+                int,
+                int,
+                int,
+                int,
+                int,
+            ]
+            | None
+        ) = None
+
+        for (
+            boundary_index,
+            candidate_group,
+        ) in enumerate(
+            candidate_groups
+        ):
+            boundary = (
+                candidate_group.boundary
+            )
+
+            left_zone = zone_by_truck[
+                boundary.left_truck_id
+            ]
+
+            right_zone = zone_by_truck[
+                boundary.right_truck_id
+            ]
+
+            for left_bin_id in (
+                candidate_group.left_bin_ids
+            ):
+                for right_bin_id in (
+                    candidate_group.right_bin_ids
+                ):
+                    (
+                        candidate_left_zone,
+                        candidate_right_zone,
+                    ) = _exchange_zone_bins(
+                        left_zone=left_zone,
+                        right_zone=right_zone,
+                        left_bin_id=left_bin_id,
+                        right_bin_id=right_bin_id,
+                    )
+
+                    candidate_left_route = (
+                        plan_zone_route(
+                            zone=(
+                                candidate_left_zone
+                            ),
+                            view=view,
+                            road_graph=road_graph,
+                            two_opt_epsilon=(
+                                two_opt_epsilon
+                            ),
+                        )
+                    )
+
+                    candidate_right_route = (
+                        plan_zone_route(
+                            zone=(
+                                candidate_right_zone
+                            ),
+                            view=view,
+                            road_graph=road_graph,
+                            two_opt_epsilon=(
+                                two_opt_epsilon
+                            ),
+                        )
+                    )
+
+                    candidate_zones = (
+                        _replace_two_zones(
+                            zones=current_zones,
+                            left_zone=(
+                                candidate_left_zone
+                            ),
+                            right_zone=(
+                                candidate_right_zone
+                            ),
+                        )
+                    )
+
+                    candidate_routes = (
+                        _replace_two_routes(
+                            routes=current_routes,
+                            left_route=(
+                                candidate_left_route
+                            ),
+                            right_route=(
+                                candidate_right_route
+                            ),
+                        )
+                    )
+
+                    _validate_balanced_zone_invariants(
+                        initial_zones=(
+                            initial_zones
+                        ),
+                        candidate_zones=(
+                            candidate_zones
+                        ),
+                    )
+
+                    candidate_objective = (
+                        tsr_balance_objective(
+                            candidate_routes
+                        )
+                    )
+
+                    if not _objective_is_strictly_better(
+                        candidate_objective,
+                        current_objective,
+                        epsilon=(
+                            two_opt_epsilon
+                        ),
+                    ):
+                        continue
+
+                    candidate_key = (
+                        boundary_index,
+                        left_bin_id,
+                        right_bin_id,
+                    )
+
+                    choose_candidate = False
+
+                    if best_objective is None:
+                        choose_candidate = True
+
+                    elif _objective_is_strictly_better(
+                        candidate_objective,
+                        best_objective,
+                        epsilon=(
+                            two_opt_epsilon
+                        ),
+                    ):
+                        choose_candidate = True
+
+                    elif (
+                        _objectives_equivalent(
+                            candidate_objective,
+                            best_objective,
+                            epsilon=(
+                                two_opt_epsilon
+                            ),
+                        )
+                        and (
+                            best_key is None
+                            or candidate_key
+                            < best_key
+                        )
+                    ):
+                        choose_candidate = True
+
+                    if choose_candidate:
+                        best_zones = (
+                            candidate_zones
+                        )
+
+                        best_routes = (
+                            candidate_routes
+                        )
+
+                        best_objective = (
+                            candidate_objective
+                        )
+
+                        best_key = (
+                            candidate_key
+                        )
+
+                        best_exchange_data = (
+                            boundary_index,
+                            boundary.left_truck_id,
+                            boundary.right_truck_id,
+                            left_bin_id,
+                            right_bin_id,
+                        )
+
+        if (
+            best_zones is None
+            or best_routes is None
+            or best_objective is None
+            or best_exchange_data is None
+        ):
+            break
+
+        previous_objective = (
+            current_objective
+        )
+
+        (
+            boundary_index,
+            left_truck_id,
+            right_truck_id,
+            left_bin_id,
+            right_bin_id,
+        ) = best_exchange_data
+
+        current_zones = (
+            best_zones
+        )
+
+        current_routes = (
+            best_routes
+        )
+
+        current_objective = (
+            best_objective
+        )
+
+        exchanges.append(
+            TSRZoneExchange(
+                iteration=len(
+                    exchanges
+                ) + 1,
+                boundary_index=(
+                    boundary_index
+                ),
+                left_truck_id=(
+                    left_truck_id
+                ),
+                right_truck_id=(
+                    right_truck_id
+                ),
+                left_bin_to_right=(
+                    left_bin_id
+                ),
+                right_bin_to_left=(
+                    right_bin_id
+                ),
+                objective_before=(
+                    previous_objective
+                ),
+                objective_after=(
+                    current_objective
+                ),
+            )
+        )
+
+        if current_objective.target_met(
+            target_relative_range,
+            epsilon=two_opt_epsilon,
+        ):
+            break
+
+    _validate_balanced_zone_invariants(
+        initial_zones=initial_zones,
+        candidate_zones=current_zones,
+    )
+
+    return TSRBalanceResult(
+        initial_zones=initial_zones,
+        final_zones=current_zones,
+        boundaries=boundaries,
+        initial_routes=initial_routes,
+        final_routes=current_routes,
+        initial_objective=initial_objective,
+        final_objective=current_objective,
+        target_relative_range=(
+            target_relative_range
+        ),
+        target_met=(
+            current_objective.target_met(
+                target_relative_range,
+                epsilon=two_opt_epsilon,
+            )
+        ),
+        exchanges=tuple(
+            exchanges
+        ),
+    )
