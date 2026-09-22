@@ -14,6 +14,9 @@ from smart_waste.movement.topologies.hexagonal_layout import (
 from smart_waste.movement.topologies.manhattan_layout import (
     build_primary_manhattan_layout,
 )
+from smart_waste.movement.topologies.radial_concentric_layout import (
+    build_primary_radial_concentric_layout,
+)
 from smart_waste.movement.topologies.superblock_layout import (
     build_primary_superblock_layout,
 )
@@ -24,8 +27,8 @@ def shared_workload():
     """
     Structural fairness fixture only.
 
-    These distribution bounds are test parameters, not frozen
-    research benchmark parameters.
+    These bounds are test parameters, not frozen research benchmark
+    parameters.
     """
 
     return generate_physical_workload(
@@ -103,15 +106,29 @@ def hex_assembly(
     )
 
 
+@pytest.fixture(scope="module")
+def radial_assembly(
+    shared_workload,
+    physical_spec,
+):
+    return _assemble(
+        build_primary_radial_concentric_layout(),
+        workload=shared_workload,
+        physical_spec=physical_spec,
+    )
+
+
 def _assemblies(
     manhattan_assembly,
     superblock_assembly,
     hex_assembly,
+    radial_assembly,
 ):
     return (
         manhattan_assembly,
         superblock_assembly,
         hex_assembly,
+        radial_assembly,
     )
 
 
@@ -120,11 +137,13 @@ def test_cross_topology_workload_identity_is_identical(
     manhattan_assembly,
     superblock_assembly,
     hex_assembly,
+    radial_assembly,
 ) -> None:
     assemblies = _assemblies(
         manhattan_assembly,
         superblock_assembly,
         hex_assembly,
+        radial_assembly,
     )
 
     assert {
@@ -154,19 +173,25 @@ def test_cross_topology_per_bin_workload_is_identical(
     manhattan_assembly,
     superblock_assembly,
     hex_assembly,
+    radial_assembly,
 ) -> None:
     assemblies = _assemblies(
         manhattan_assembly,
         superblock_assembly,
         hex_assembly,
+        radial_assembly,
     )
 
-    snapshots_by_topology = tuple(
+    snapshots = tuple(
         assembly.snapshot
         for assembly in assemblies
     )
 
-    for snapshot in snapshots_by_topology:
+    for snapshot in snapshots:
+        assert len(
+            snapshot.bins
+        ) == 1000
+
         assert tuple(
             row.bin_id
             for row in snapshot.bins
@@ -183,8 +208,7 @@ def test_cross_topology_per_bin_workload_is_identical(
             snapshot.bins[
                 bin_id
             ]
-            for snapshot
-            in snapshots_by_topology
+            for snapshot in snapshots
         )
 
         expected_fill = (
@@ -225,6 +249,7 @@ def test_cross_topology_geometry_is_distinct(
     manhattan_assembly,
     superblock_assembly,
     hex_assembly,
+    radial_assembly,
 ) -> None:
     manhattan = (
         manhattan_assembly.snapshot
@@ -236,6 +261,10 @@ def test_cross_topology_geometry_is_distinct(
 
     hexagonal = (
         hex_assembly.snapshot
+    )
+
+    radial = (
+        radial_assembly.snapshot
     )
 
     assert (
@@ -274,6 +303,18 @@ def test_cross_topology_geometry_is_distinct(
         4402,
     )
 
+    assert (
+        len(
+            radial.road_nodes
+        ),
+        len(
+            radial.road_edges
+        ),
+    ) == (
+        1201,
+        2400,
+    )
+
     road_assignments = {
         tuple(
             row.road_node
@@ -283,23 +324,26 @@ def test_cross_topology_geometry_is_distinct(
             manhattan,
             superblock,
             hexagonal,
+            radial,
         )
     }
 
     assert len(
         road_assignments
-    ) == 3
+    ) == 4
 
 
 def test_cross_topology_scenario_identities_are_distinct(
     manhattan_assembly,
     superblock_assembly,
     hex_assembly,
+    radial_assembly,
 ) -> None:
     assemblies = _assemblies(
         manhattan_assembly,
         superblock_assembly,
         hex_assembly,
+        radial_assembly,
     )
 
     assert len(
@@ -307,11 +351,79 @@ def test_cross_topology_scenario_identities_are_distinct(
             assembly.scenario_sha256
             for assembly in assemblies
         }
-    ) == 3
+    ) == 4
 
     assert len(
         {
             assembly.scenario_id
             for assembly in assemblies
         }
-    ) == 3
+    ) == 4
+
+
+def test_every_topology_preserves_primary_physical_scale(
+    manhattan_assembly,
+    superblock_assembly,
+    hex_assembly,
+    radial_assembly,
+) -> None:
+    assemblies = _assemblies(
+        manhattan_assembly,
+        superblock_assembly,
+        hex_assembly,
+        radial_assembly,
+    )
+
+    for assembly in assemblies:
+        snapshot = (
+            assembly.snapshot
+        )
+
+        assert len(
+            snapshot.bins
+        ) == 1000
+
+        assert len(
+            snapshot.trucks
+        ) == 10
+
+        assert (
+            snapshot.depot.unloading_bays
+            == 1
+        )
+
+        assert all(
+            truck.capacity_tonnes
+            == pytest.approx(
+                10.0
+            )
+            for truck
+            in snapshot.trucks
+        )
+
+        assert all(
+            truck.speed_km_per_hour
+            == pytest.approx(
+                30.0
+            )
+            for truck
+            in snapshot.trucks
+        )
+
+        assert all(
+            truck.fuel_capacity_litres
+            == pytest.approx(
+                200.0
+            )
+            for truck
+            in snapshot.trucks
+        )
+
+        assert all(
+            truck.fuel_efficiency_km_per_litre
+            == pytest.approx(
+                2.5
+            )
+            for truck
+            in snapshot.trucks
+        )
