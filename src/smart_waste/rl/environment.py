@@ -457,6 +457,9 @@ class SmartWasteRoutingEnv(gym.Env):
             "total_fuel_litres": (
                 self.total_fuel_litres
             ),
+            "simulated_time_hours": (
+                self.simulated_time_hours
+            ),
         }
 
     def reset(
@@ -497,7 +500,7 @@ class SmartWasteRoutingEnv(gym.Env):
 
         self.total_distance_km = 0.0
         self.total_fuel_litres = 0.0
-
+        self.simulated_time_hours = 0.0
         return (
             self._observation(),
             self._info(),
@@ -523,6 +526,15 @@ class SmartWasteRoutingEnv(gym.Env):
             )
 
         truck_id = self.active_truck
+
+        # The configured decision interval represents one complete
+        # fleet scheduling epoch. The centralized sequential
+        # coordinator assigns one target to each active truck
+        # within that epoch.
+        action_elapsed_hours = (
+            self.decision_interval_hours
+            / self.num_trucks
+        )        
 
         current_location = (
             self.truck_xy[
@@ -592,7 +604,7 @@ class SmartWasteRoutingEnv(gym.Env):
             self.fill_percent
             + (
                 self.fill_rates
-                * self.decision_interval_hours
+                * action_elapsed_hours
             ),
         )
 
@@ -604,7 +616,7 @@ class SmartWasteRoutingEnv(gym.Env):
             full_now,
             (
                 self.full_elapsed_hours
-                + self.decision_interval_hours
+                + action_elapsed_hours
             ),
             0.0,
         )
@@ -617,7 +629,7 @@ class SmartWasteRoutingEnv(gym.Env):
                     self.verified_mask
                 ]
             )
-            * self.decision_interval_hours
+            * action_elapsed_hours
         )
 
         sla_violation_term = (
@@ -630,6 +642,10 @@ class SmartWasteRoutingEnv(gym.Env):
                 )
             )
             else 0.0
+        )
+
+        self.simulated_time_hours += (
+            action_elapsed_hours
         )
 
         self.step_count += 1

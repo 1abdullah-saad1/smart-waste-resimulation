@@ -159,3 +159,64 @@ def test_reset_is_deterministic():
         first_info["action_mask"],
         second_info["action_mask"],
     )
+
+def test_decision_interval_is_distributed_across_fleet():
+
+    env = SmartWasteRoutingEnv(
+        bin_xy=np.array(
+            [
+                [1.0, 0.0],
+                [2.0, 0.0],
+                [3.0, 0.0],
+            ],
+            dtype=np.float64,
+        ),
+        depot_xy=np.array(
+            [0.0, 0.0],
+            dtype=np.float64,
+        ),
+        initial_fill_percent=np.array(
+            [
+                95.0,
+                95.0,
+                50.0,
+            ],
+            dtype=np.float64,
+        ),
+        fill_rate_percent_per_hour=np.array(
+            [
+                0.0,
+                0.0,
+                4.0,
+            ],
+            dtype=np.float64,
+        ),
+        hazard_severity=np.zeros(
+            3,
+            dtype=np.float64,
+        ),
+        prediction_horizon_hours=1.0,
+        decision_interval_hours=1.0,
+        num_trucks=2,
+        max_steps=10,
+    )
+
+    _, info = env.reset()
+
+    assert info[
+        "simulated_time_hours"
+    ] == pytest.approx(0.0)
+
+    _, _, _, _, info = env.step(0)
+
+    # One action of a two-truck sequential fleet represents
+    # half of the one-hour fleet decision epoch.
+    assert info[
+        "simulated_time_hours"
+    ] == pytest.approx(0.5)
+
+    # The unserviced third bin should therefore grow by
+    # 4 %/h × 0.5 h = 2 percentage points.
+    assert env.fill_percent[2] == pytest.approx(
+        52.0
+    )

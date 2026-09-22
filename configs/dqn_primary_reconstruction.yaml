@@ -1,0 +1,208 @@
+# ============================================================
+# PRIMARY DQN RECONSTRUCTION PROTOCOL
+# ============================================================
+
+protocol:
+  name: primary_dqn_reconstruction
+  version: "0.1.0"
+
+  # Manuscript-defined training duration.
+  training_episodes: 100
+
+  # Fixed synthetic city for the primary convergence run.
+  city_master_seed: 20260922
+
+  # Agent initialization / exploration seed.
+  agent_seed: 20260922
+
+  # Keep the same city/workload across the 100 training episodes
+  # so that reward/loss convergence can be interpreted cleanly.
+  fixed_city_across_training: true
+
+
+# ============================================================
+# TEMPORAL RECONSTRUCTION
+# ============================================================
+
+temporal:
+
+  # Reconstruction assumption.
+  #
+  # The manuscript reports sensor payloads every 15 minutes,
+  # but does not explicitly define the DQN action duration.
+  #
+  # We interpret 15 minutes as one complete fleet scheduling
+  # epoch. Because the manuscript uses a centralized sequential
+  # coordinator with 10 trucks, one action advances simulation
+  # time by:
+  #
+  #   0.25 h / 10 trucks = 0.025 h
+  #
+  # The division is performed by the environment.
+  decision_interval_hours: 0.25
+  decision_interval_semantics: fleet_round
+
+  # Reconstruction assumption:
+  # one daily collection cycle.
+  prediction_horizon_hours: 24.0
+
+
+# ============================================================
+# FILL-RATE MODEL
+# ============================================================
+
+fill_dynamics:
+
+  # Reconstruction assumption.
+  distribution: uniform
+
+  # Slow-growth bins are permitted.
+  minimum_rate_percent_per_hour: 0.0
+
+  # Reconstruction upper bound.
+  #
+  # At 1.25 percentage-points/hour, a 75% bin can reach 100%
+  # within 20 hours, which allows the manuscript's stated
+  # 75-80% predictive-overflow scenario to occur within the
+  # assumed 24-hour collection horizon.
+  maximum_rate_percent_per_hour: 1.25
+
+  seed_namespace: dqn-primary-fill-rates
+
+
+# ============================================================
+# VERIFIED TELEMETRY
+# ============================================================
+
+telemetry:
+  # Primary nominal training uses verified telemetry.
+  verified_fraction: 1.0
+
+  # FDI experiments remain separate from the nominal DQN
+  # convergence experiment.
+  inject_fdi_during_training: false
+
+
+# ============================================================
+# PRIMARY HAZARD SCENARIO
+# ============================================================
+
+hazard:
+
+  # The manuscript does not provide stochastic hazard frequency.
+  # Therefore the primary DQN run does NOT invent a probability
+  # distribution.
+  generation_mode: deterministic_representative
+
+  # Representative manuscript scenario contains one
+  # pre-combustion high-risk bin.
+  predicted_combustion_risk_count: 1
+
+  # These are not assigned arbitrary primary counts.
+  emergency_fire_count: 0
+  excess_moisture_count: 0
+
+  selection_seed: 20260922
+
+  # normalized H_t encoding:
+  predicted_combustion_normalized_severity: 0.6666666666666666
+
+
+# ============================================================
+# ENVIRONMENT
+# ============================================================
+
+environment:
+
+  num_bins: 1000
+  num_trucks: 10
+
+  truck_capacity_tonnes: 10.0
+  fuel_efficiency_km_per_litre: 2.5
+
+  near_full_threshold_percent: 90.0
+  sla_limit_hours: 6.0
+
+  # Safety cap only.
+  # The episode should normally terminate when no candidates remain.
+  max_steps: 1000
+
+
+# ============================================================
+# DQN
+# ============================================================
+
+dqn:
+
+  hidden_layers:
+    - 256
+    - 128
+    - 64
+
+  gamma: 0.95
+
+  replay_capacity: 100000
+  batch_size: 64
+
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay_episodes: 100
+
+  optimizer: adam
+
+  # Reconstruction assumptions.
+  learning_rate: 0.001
+  replay_warmup_transitions: 1000
+  target_update_steps: 250
+  loss_function: smooth_l1
+
+  replay_state_storage_dtype: float16
+
+
+# ============================================================
+# PRIMARY OUTPUTS
+# ============================================================
+
+outputs:
+
+  episode_metrics_csv:
+    results/raw/dqn_primary_training_episodes.csv
+
+  model_checkpoint:
+    results/models/dqn_primary_final.pt
+
+  protocol_snapshot:
+    results/processed/dqn_primary_protocol_snapshot.yaml
+
+
+# ============================================================
+# VALIDATION / ROBUSTNESS — NOT PART OF THE PRIMARY RUN
+# ============================================================
+
+validation:
+
+  # Primary manuscript reproduction first.
+  run_during_primary_training: false
+
+  # Later reviewer-response experiments.
+  independent_training_replicates: 10
+  independent_evaluation_runs: 100
+
+  greedy_evaluation_epsilon: 0.0
+
+  temporal_sensitivity:
+    decision_interval_hours:
+      - 0.25
+      - 0.50
+      - 1.00
+
+    prediction_horizon_hours:
+      - 12.0
+      - 24.0
+      - 48.0
+
+  fill_rate_sensitivity:
+    maximum_rate_percent_per_hour:
+      - 0.625
+      - 1.25
+      - 2.50
