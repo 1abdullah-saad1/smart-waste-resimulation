@@ -487,45 +487,27 @@ def run_hdr_fdi_condition(
     )
 
 
-def run_paired_hdr_fdi_experiment(
+def run_paired_hdr_fdi_scenario(
     snapshot: PhysicalScenarioSnapshot,
+    scenario: FDIAttackScenario,
     *,
-    master_seed: int,
-    attack_rate: float,
-    attack_type: AttackType,
-    replicate_id: int = 0,
-    selection_mode: AttackSelectionMode = "paired_nested",
-    forged_fill_percent: float = 100.0,
     threshold_percent: float = 80.0,
     service_time_seconds: float = 36.0,
     max_events: int = 1_000_000,
 ) -> PairedFDIRoutingResult:
     """
-    Run a paired unprotected-versus-PoA comparison.
+    Execute one already-defined FDI realization on both security
+    paths from independent reconstructions of the same physical
+    scenario.
 
-    Both conditions receive:
-    - the exact same immutable physical scenario,
-    - the exact same FDI attack realization,
-    - independent freshly reconstructed mutable states.
-
-    The only experimental difference is which forged telemetry
-    survives the selected security path.
+    This is the canonical paired-execution entry point when an
+    experiment manifest and execution must reference the exact same
+    attack realization.
     """
 
-    truth = _snapshot_truth(
-        snapshot
-    )
-
-    scenario = generate_fdi_attack_from_truth(
-        truth,
-        master_seed=master_seed,
-        attack_rate=attack_rate,
-        attack_type=attack_type,
-        selection_mode=selection_mode,
-        forged_fill_percent=(
-            forged_fill_percent
-        ),
-        replicate_id=replicate_id,
+    _validate_attack_matches_snapshot(
+        snapshot=snapshot,
+        scenario=scenario,
     )
 
     unprotected = run_hdr_fdi_condition(
@@ -567,9 +549,21 @@ def run_paired_hdr_fdi_experiment(
     if (
         unprotected.attacked_bin_ids
         != poa_verified.attacked_bin_ids
+        or unprotected.attacked_bin_ids
+        != scenario.attacked_bin_ids
     ):
         raise FDIPairedExperimentError(
             "paired conditions do not share one attack realization"
+        )
+
+    if (
+        unprotected.selection_seed
+        != scenario.selection_seed
+        or poa_verified.selection_seed
+        != scenario.selection_seed
+    ):
+        raise FDIPairedExperimentError(
+            "paired conditions do not preserve attack selection seed"
         )
 
     return PairedFDIRoutingResult(
@@ -579,7 +573,9 @@ def run_paired_hdr_fdi_experiment(
         scenario_sha256=(
             snapshot.sha256
         ),
-        attack_type=attack_type,
+        attack_type=(
+            scenario.attack_type
+        ),
         attack_rate=(
             scenario.attack_rate
         ),
@@ -594,4 +590,51 @@ def run_paired_hdr_fdi_experiment(
         ),
         unprotected=unprotected,
         poa_verified=poa_verified,
+    )
+
+
+def run_paired_hdr_fdi_experiment(
+    snapshot: PhysicalScenarioSnapshot,
+    *,
+    master_seed: int,
+    attack_rate: float,
+    attack_type: AttackType,
+    replicate_id: int = 0,
+    selection_mode: AttackSelectionMode = "paired_nested",
+    forged_fill_percent: float = 100.0,
+    threshold_percent: float = 80.0,
+    service_time_seconds: float = 36.0,
+    max_events: int = 1_000_000,
+) -> PairedFDIRoutingResult:
+    """
+    Convenience wrapper that deterministically generates one attack
+    realization and delegates to run_paired_hdr_fdi_scenario().
+    """
+
+    truth = _snapshot_truth(
+        snapshot
+    )
+
+    scenario = generate_fdi_attack_from_truth(
+        truth,
+        master_seed=master_seed,
+        attack_rate=attack_rate,
+        attack_type=attack_type,
+        selection_mode=selection_mode,
+        forged_fill_percent=(
+            forged_fill_percent
+        ),
+        replicate_id=replicate_id,
+    )
+
+    return run_paired_hdr_fdi_scenario(
+        snapshot,
+        scenario,
+        threshold_percent=(
+            threshold_percent
+        ),
+        service_time_seconds=(
+            service_time_seconds
+        ),
+        max_events=max_events,
     )
