@@ -38,6 +38,188 @@ class TSRZone:
             )
 
 
+@dataclass
+class TSRRoadDistanceOracle:
+    """
+    Scenario-local shortest-road distance cache.
+
+    Dijkstra is executed at most once for each unique service-road
+    source node. Subsequent TSR route planning and balancing reuse
+    the cached road distances.
+
+    This changes computational cost only; it does not change the
+    TSR objective, routing rule, or physical distance definition.
+    """
+
+    road_graph: RoadGraph
+    service_nodes: tuple[int | str, ...]
+
+    _distance_cache: dict[
+        int | str,
+        dict[int | str, float],
+    ] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
+
+    _source_search_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+
+    def __post_init__(self) -> None:
+        unique_nodes = tuple(
+            dict.fromkeys(
+                self.service_nodes
+            )
+        )
+
+        if not unique_nodes:
+            raise TSRPlanningError(
+                "distance oracle requires service nodes"
+            )
+
+        self.service_nodes = unique_nodes
+
+        try:
+            self.road_graph.validate_service_nodes(
+                set(
+                    self.service_nodes
+                )
+            )
+        except ValueError as exc:
+            raise TSRPlanningError(
+                str(exc)
+            ) from exc
+
+    @property
+    def source_search_count(self) -> int:
+        return self._source_search_count
+
+    @property
+    def cached_source_count(self) -> int:
+        return len(
+            self._distance_cache
+        )
+
+    def _validate_registered_node(
+        self,
+        node: int | str,
+    ) -> None:
+        if node not in self.service_nodes:
+            raise TSRPlanningError(
+                f"road node {node!r} is not registered "
+                "in the TSR distance oracle"
+            )
+
+    def _ensure_source(
+        self,
+        source: int | str,
+    ) -> None:
+        self._validate_registered_node(
+            source
+        )
+
+        if source in self._distance_cache:
+            return
+
+        lengths = (
+            nx.single_source_dijkstra_path_length(
+                self.road_graph.graph,
+                source,
+                weight=(
+                    self.road_graph.length_attribute
+                ),
+            )
+        )
+
+        missing = [
+            node
+            for node in self.service_nodes
+            if node not in lengths
+        ]
+
+        if missing:
+            raise TSRPlanningError(
+                f"road network does not connect source "
+                f"{source!r} to service nodes: "
+                f"{sorted(missing, key=str)}"
+            )
+
+        self._distance_cache[source] = {
+            node: float(
+                lengths[node]
+            )
+            for node in self.service_nodes
+        }
+
+        self._source_search_count += 1
+
+    def distance_km(
+        self,
+        source: int | str,
+        target: int | str,
+    ) -> float:
+        self._validate_registered_node(
+            source
+        )
+
+        self._validate_registered_node(
+            target
+        )
+
+        if source == target:
+            return 0.0
+
+        self._ensure_source(
+            source
+        )
+
+        return self._distance_cache[
+            source
+        ][target]
+
+
+def build_tsr_distance_oracle(
+    *,
+    view: PolicyView,
+    road_graph: RoadGraph,
+) -> TSRRoadDistanceOracle:
+    """
+    Register only the central depot and physical road nodes used by
+    bins in this policy snapshot.
+
+    Multiple bins snapped to the same road node therefore share one
+    Dijkstra source.
+    """
+
+    ordered_bins = tuple(
+        sorted(
+            view.bins,
+            key=lambda bin_: bin_.bin_id,
+        )
+    )
+
+    service_nodes = tuple(
+        dict.fromkeys(
+            (
+                view.depot_node,
+                *(
+                    bin_.road_node
+                    for bin_ in ordered_bins
+                ),
+            )
+        )
+    )
+
+    return TSRRoadDistanceOracle(
+        road_graph=road_graph,
+        service_nodes=service_nodes,
+    )
+
+
 @dataclass(frozen=True)
 class TSRDistanceMatrix:
     """
@@ -466,13 +648,29 @@ def build_zone_distance_matrix(
     zone: TSRZone,
     view: PolicyView,
     road_graph: RoadGraph,
+    distance_oracle: TSRRoadDistanceOracle | None = None,
 ) -> TSRDistanceMatrix:
     """
-    Build shortest-road distance matrix for one zone.
+    Build one zone matrix from shortest-road distances.
 
-    Dijkstra is run once per unique physical road node rather than
-    once per bin pair.
+    When a shared distance_oracle is supplied, repeated route
+    planning and balancing reuse previously computed Dijkstra
+    searches.
     """
+
+    oracle = (
+        distance_oracle
+        if distance_oracle is not None
+        else build_tsr_distance_oracle(
+            view=view,
+            road_graph=road_graph,
+        )
+    )
+
+    if oracle.road_graph is not road_graph:
+        raise TSRPlanningError(
+            "distance oracle belongs to a different road graph"
+        )
 
     bin_nodes = {
         bin_id: view.bin_by_id(
@@ -481,95 +679,26 @@ def build_zone_distance_matrix(
         for bin_id in zone.bin_ids
     }
 
-    service_nodes = {
-        view.depot_node,
-        *bin_nodes.values(),
-    }
-
-    try:
-        road_graph.validate_service_nodes(
-            service_nodes
-        )
-    except ValueError as exc:
-        raise TSRPlanningError(
-            str(exc)
-        ) from exc
-
-    graph = road_graph.graph
-    weight = road_graph.length_attribute
-
-    unique_sources = tuple(
-        dict.fromkeys(
-            (
-                view.depot_node,
-                *(
-                    bin_nodes[
-                        bin_id
-                    ]
-                    for bin_id in zone.bin_ids
-                ),
-            )
-        )
-    )
-
-    distance_cache: dict[
-        int | str,
-        dict[
-            int | str,
-            float,
-        ],
-    ] = {}
-
-    for source in unique_sources:
-        lengths = (
-            nx.single_source_dijkstra_path_length(
-                graph,
-                source,
-                weight=weight,
-            )
-        )
-
-        missing = (
-            service_nodes
-            - set(lengths)
-        )
-
-        if missing:
-            raise TSRPlanningError(
-                f"road network does not connect source "
-                f"{source!r} to service nodes: "
-                f"{sorted(missing, key=str)}"
-            )
-
-        distance_cache[
-            source
-        ] = {
-            target: float(distance)
-            for target, distance in lengths.items()
-        }
-
     depot_distances = tuple(
-        distance_cache[
-            view.depot_node
-        ][
+        oracle.distance_km(
+            view.depot_node,
             bin_nodes[
                 bin_id
-            ]
-        ]
+            ],
+        )
         for bin_id in zone.bin_ids
     )
 
     pairwise = tuple(
         tuple(
-            distance_cache[
+            oracle.distance_km(
                 bin_nodes[
                     first_bin_id
-                ]
-            ][
+                ],
                 bin_nodes[
                     second_bin_id
-                ]
-            ]
+                ],
+            )
             for second_bin_id in zone.bin_ids
         )
         for first_bin_id in zone.bin_ids
@@ -584,7 +713,6 @@ def build_zone_distance_matrix(
             pairwise
         ),
     )
-
 
 def nearest_neighbor_route(
     matrix: TSRDistanceMatrix,
@@ -792,11 +920,13 @@ def plan_zone_route(
     view: PolicyView,
     road_graph: RoadGraph,
     two_opt_epsilon: float = 1.0e-12,
+    distance_oracle: TSRRoadDistanceOracle | None = None,
 ) -> TSRRoute:
     matrix = build_zone_distance_matrix(
         zone=zone,
         view=view,
         road_graph=road_graph,
+        distance_oracle=distance_oracle,
     )
 
     initial_route = (
@@ -857,6 +987,7 @@ def plan_all_zone_routes(
     view: PolicyView,
     road_graph: RoadGraph,
     two_opt_epsilon: float = 1.0e-12,
+    distance_oracle: TSRRoadDistanceOracle | None = None,
 ) -> tuple[TSRRoute, ...]:
     """
     Construct one deterministic optimized route per static zone.
@@ -894,6 +1025,15 @@ def plan_all_zone_routes(
             "TSR zones overlap"
         )
 
+    oracle = (
+        distance_oracle
+        if distance_oracle is not None
+        else build_tsr_distance_oracle(
+            view=view,
+            road_graph=road_graph,
+        )
+    )
+
     return tuple(
         plan_zone_route(
             zone=zone,
@@ -902,6 +1042,7 @@ def plan_all_zone_routes(
             two_opt_epsilon=(
                 two_opt_epsilon
             ),
+            distance_oracle=oracle,
         )
         for zone in ordered_zones
     )
@@ -1682,6 +1823,7 @@ def balance_adjacent_zones(
     candidate_count: int = 10,
     target_relative_range: float = 0.10,
     two_opt_epsilon: float = 1.0e-12,
+    distance_oracle: TSRRoadDistanceOracle | None = None,
 ) -> TSRBalanceResult:
     """
     Deterministically balance static TSR zones.
@@ -1736,11 +1878,21 @@ def balance_adjacent_zones(
             "balancing requires at least one TSR zone"
         )
 
+    oracle = (
+        distance_oracle
+        if distance_oracle is not None
+        else build_tsr_distance_oracle(
+            view=view,
+            road_graph=road_graph,
+        )
+    )
+
     initial_routes = plan_all_zone_routes(
         zones=initial_zones,
         view=view,
         road_graph=road_graph,
         two_opt_epsilon=two_opt_epsilon,
+        distance_oracle=oracle,
     )
 
     initial_objective = tsr_balance_objective(
@@ -1871,6 +2023,7 @@ def balance_adjacent_zones(
                             two_opt_epsilon=(
                                 two_opt_epsilon
                             ),
+                            distance_oracle=oracle,
                         )
                     )
 
@@ -1884,6 +2037,7 @@ def balance_adjacent_zones(
                             two_opt_epsilon=(
                                 two_opt_epsilon
                             ),
+                            distance_oracle=oracle,
                         )
                     )
 
