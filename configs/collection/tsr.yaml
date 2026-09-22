@@ -21,6 +21,12 @@ route_construction:
 balancing:
   enabled: false
   phase: phase_4b
+  boundary_candidate_count: 10
+  target_relative_range: 0.10
+  objective:
+    primary: route_distance_range
+    secondary: total_route_distance
+  fixed_initial_boundaries: true
 
 provenance:
   strategy: revised_benchmark

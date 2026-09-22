@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 from numbers import Real
 from typing import Sequence
@@ -904,4 +904,432 @@ def plan_all_zone_routes(
             ),
         )
         for zone in ordered_zones
+    )
+
+
+@dataclass(frozen=True, order=True)
+class TSRBalanceObjective:
+    """
+    Lexicographic TSR load-balancing objective.
+
+    Comparison order:
+    1. minimize route-distance range,
+    2. minimize total route distance.
+
+    mean_distance_km and relative_range are reported metrics and
+    do not participate in objective ordering.
+    """
+
+    distance_range_km: float
+    total_distance_km: float
+
+    mean_distance_km: float = field(
+        compare=False
+    )
+
+    relative_range: float = field(
+        compare=False
+    )
+
+    def target_met(
+        self,
+        target_relative_range: float,
+        *,
+        epsilon: float = 1.0e-12,
+    ) -> bool:
+        if target_relative_range < 0.0:
+            raise ValueError(
+                "target_relative_range cannot be negative"
+            )
+
+        if epsilon < 0.0:
+            raise ValueError(
+                "epsilon cannot be negative"
+            )
+
+        return (
+            self.relative_range
+            <= target_relative_range
+            + epsilon
+        )
+
+
+@dataclass(frozen=True)
+class TSRBoundary:
+    """
+    Fixed longitudinal boundary between two initially adjacent
+    TSR zones.
+
+    x_coordinate is a zoning coordinate only. It is never used
+    as a physical truck-travel distance.
+    """
+
+    left_truck_id: int
+    right_truck_id: int
+    x_coordinate: float
+
+
+@dataclass(frozen=True)
+class TSRBoundaryCandidates:
+    """
+    Deterministic candidate bins nearest one longitudinal boundary.
+    """
+
+    boundary: TSRBoundary
+    left_bin_ids: tuple[int, ...]
+    right_bin_ids: tuple[int, ...]
+
+
+def tsr_balance_objective(
+    routes: Sequence[TSRRoute],
+) -> TSRBalanceObjective:
+    """
+    Compute the predeclared lexicographic balancing objective.
+    """
+
+    route_tuple = tuple(
+        routes
+    )
+
+    if not route_tuple:
+        raise TSRPlanningError(
+            "balance objective requires at least one TSR route"
+        )
+
+    distances = tuple(
+        float(
+            route.optimized_distance_km
+        )
+        for route in route_tuple
+    )
+
+    if any(
+        distance < 0.0
+        or not isfinite(distance)
+        for distance in distances
+    ):
+        raise TSRPlanningError(
+            "TSR route distances must be finite and non-negative"
+        )
+
+    minimum = min(
+        distances
+    )
+
+    maximum = max(
+        distances
+    )
+
+    total = sum(
+        distances
+    )
+
+    mean = (
+        total
+        / len(distances)
+    )
+
+    distance_range = (
+        maximum
+        - minimum
+    )
+
+    if mean <= 1.0e-15:
+        relative_range = 0.0
+    else:
+        relative_range = (
+            distance_range
+            / mean
+        )
+
+    return TSRBalanceObjective(
+        distance_range_km=float(
+            distance_range
+        ),
+        total_distance_km=float(
+            total
+        ),
+        mean_distance_km=float(
+            mean
+        ),
+        relative_range=float(
+            relative_range
+        ),
+    )
+
+
+def _zone_x_coordinates(
+    *,
+    zone: TSRZone,
+    view: PolicyView,
+    road_graph: RoadGraph,
+) -> tuple[
+    tuple[int, float, float],
+    ...,
+]:
+    """
+    Return deterministic (bin_id, x, y) records for one zone.
+    """
+
+    records = []
+
+    for bin_id in zone.bin_ids:
+        bin_ = view.bin_by_id(
+            bin_id
+        )
+
+        x, y = _road_node_xy(
+            road_graph,
+            bin_.road_node,
+        )
+
+        records.append(
+            (
+                bin_id,
+                x,
+                y,
+            )
+        )
+
+    return tuple(
+        records
+    )
+
+
+def build_longitudinal_boundaries(
+    *,
+    zones: Sequence[TSRZone],
+    view: PolicyView,
+    road_graph: RoadGraph,
+) -> tuple[TSRBoundary, ...]:
+    """
+    Freeze longitudinal boundaries from the initial contiguous
+    zone partition.
+
+    For adjacent zones j and j+1:
+
+        boundary_x =
+            (max_x(left) + min_x(right)) / 2
+
+    These boundaries remain fixed during Phase 4B exchanges to
+    prevent iterative zone-boundary drift.
+    """
+
+    ordered_zones = tuple(
+        sorted(
+            zones,
+            key=lambda zone: zone.truck_id,
+        )
+    )
+
+    if len(ordered_zones) < 2:
+        return ()
+
+    if len(
+        {
+            zone.truck_id
+            for zone in ordered_zones
+        }
+    ) != len(ordered_zones):
+        raise TSRPlanningError(
+            "TSR zone truck IDs must be unique"
+        )
+
+    all_bin_ids = tuple(
+        bin_id
+        for zone in ordered_zones
+        for bin_id in zone.bin_ids
+    )
+
+    if len(set(all_bin_ids)) != len(
+        all_bin_ids
+    ):
+        raise TSRPlanningError(
+            "TSR zones overlap"
+        )
+
+    boundaries: list[
+        TSRBoundary
+    ] = []
+
+    for left_zone, right_zone in zip(
+        ordered_zones,
+        ordered_zones[1:],
+    ):
+        left_records = _zone_x_coordinates(
+            zone=left_zone,
+            view=view,
+            road_graph=road_graph,
+        )
+
+        right_records = _zone_x_coordinates(
+            zone=right_zone,
+            view=view,
+            road_graph=road_graph,
+        )
+
+        left_max_x = max(
+            record[1]
+            for record in left_records
+        )
+
+        right_min_x = min(
+            record[1]
+            for record in right_records
+        )
+
+        boundary_x = (
+            left_max_x
+            + right_min_x
+        ) / 2.0
+
+        boundaries.append(
+            TSRBoundary(
+                left_truck_id=(
+                    left_zone.truck_id
+                ),
+                right_truck_id=(
+                    right_zone.truck_id
+                ),
+                x_coordinate=float(
+                    boundary_x
+                ),
+            )
+        )
+
+    return tuple(
+        boundaries
+    )
+
+
+def closest_boundary_bins(
+    *,
+    zone: TSRZone,
+    boundary: TSRBoundary,
+    view: PolicyView,
+    road_graph: RoadGraph,
+    candidate_count: int = 10,
+) -> tuple[int, ...]:
+    """
+    Select bins geometrically nearest a frozen longitudinal zone
+    boundary.
+
+    Ordering:
+        1. absolute x-distance to boundary,
+        2. y coordinate,
+        3. bin_id.
+
+    Coordinates are used only for zoning/boundary selection.
+    They are never substituted for graph-road travel distance.
+    """
+
+    if candidate_count <= 0:
+        raise ValueError(
+            "candidate_count must be positive"
+        )
+
+    if zone.truck_id not in {
+        boundary.left_truck_id,
+        boundary.right_truck_id,
+    }:
+        raise TSRPlanningError(
+            "zone is not adjacent to supplied boundary"
+        )
+
+    records = _zone_x_coordinates(
+        zone=zone,
+        view=view,
+        road_graph=road_graph,
+    )
+
+    ordered = sorted(
+        records,
+        key=lambda record: (
+            abs(
+                record[1]
+                - boundary.x_coordinate
+            ),
+            record[2],
+            record[0],
+        ),
+    )
+
+    return tuple(
+        record[0]
+        for record in ordered[
+            :min(
+                candidate_count,
+                len(ordered),
+            )
+        ]
+    )
+
+
+def build_boundary_candidates(
+    *,
+    zones: Sequence[TSRZone],
+    boundaries: Sequence[TSRBoundary],
+    view: PolicyView,
+    road_graph: RoadGraph,
+    candidate_count: int = 10,
+) -> tuple[TSRBoundaryCandidates, ...]:
+    """
+    Build the fixed-size candidate sets used by adjacent-zone
+    exchange search.
+    """
+
+    if candidate_count <= 0:
+        raise ValueError(
+            "candidate_count must be positive"
+        )
+
+    zone_by_truck = {
+        zone.truck_id: zone
+        for zone in zones
+    }
+
+    results: list[
+        TSRBoundaryCandidates
+    ] = []
+
+    for boundary in boundaries:
+        try:
+            left_zone = zone_by_truck[
+                boundary.left_truck_id
+            ]
+
+            right_zone = zone_by_truck[
+                boundary.right_truck_id
+            ]
+        except KeyError as exc:
+            raise TSRPlanningError(
+                "boundary references unknown TSR zone"
+            ) from exc
+
+        results.append(
+            TSRBoundaryCandidates(
+                boundary=boundary,
+                left_bin_ids=closest_boundary_bins(
+                    zone=left_zone,
+                    boundary=boundary,
+                    view=view,
+                    road_graph=road_graph,
+                    candidate_count=(
+                        candidate_count
+                    ),
+                ),
+                right_bin_ids=closest_boundary_bins(
+                    zone=right_zone,
+                    boundary=boundary,
+                    view=view,
+                    road_graph=road_graph,
+                    candidate_count=(
+                        candidate_count
+                    ),
+                ),
+            )
+        )
+
+    return tuple(
+        results
     )
