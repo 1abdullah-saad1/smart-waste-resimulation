@@ -14,7 +14,10 @@ from smart_waste.models.fuel import (
     is_candidate_fuel_feasible,
     refuel_time_minutes,
 )
-from smart_waste.models.truck import Truck
+from smart_waste.models.truck import (
+    Truck,
+    TruckStatus,
+)
 
 
 def make_truck() -> Truck:
@@ -133,31 +136,46 @@ def test_truck_starts_with_full_tank() -> None:
     assert truck.fuel_remaining_litres == 200.0
 
 
-def test_truck_travel_updates_physical_state() -> None:
+def test_truck_travel_requires_arrival_completion() -> None:
     truck = make_truck()
 
-    elapsed = truck.travel(
+    fuel_used = truck.begin_travel(
         destination_node=1,
         distance_km=30.0,
     )
 
-    assert elapsed == pytest.approx(1.0)
-    assert truck.current_node == 1
-    assert truck.cumulative_distance_km == pytest.approx(30.0)
+    assert fuel_used == pytest.approx(12.0)
+
+    # Departure does not teleport the truck.
+    assert truck.current_node == "depot"
+    assert truck.destination_node == 1
+    assert truck.status == TruckStatus.TRAVELLING
+
+    assert truck.cumulative_distance_km == pytest.approx(0.0)
     assert truck.cumulative_fuel_used_litres == pytest.approx(12.0)
     assert truck.fuel_remaining_litres == pytest.approx(188.0)
 
+    completed_distance = truck.complete_travel()
 
-def test_truck_cannot_run_out_of_fuel() -> None:
+    assert completed_distance == pytest.approx(30.0)
+    assert truck.current_node == 1
+    assert truck.destination_node is None
+    assert truck.status == TruckStatus.IDLE
+    assert truck.cumulative_distance_km == pytest.approx(30.0)
+
+
+def test_truck_cannot_begin_unfuelled_travel() -> None:
     truck = make_truck()
     truck.fuel_remaining_litres = 1.0
 
     with pytest.raises(ValueError):
-        truck.travel(
+        truck.begin_travel(
             destination_node=1,
             distance_km=10.0,
         )
 
+    assert truck.current_node == "depot"
+    assert truck.status == TruckStatus.IDLE
     assert truck.fuel_remaining_litres == pytest.approx(1.0)
 
 

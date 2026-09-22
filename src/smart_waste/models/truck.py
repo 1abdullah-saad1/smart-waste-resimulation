@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from smart_waste.models.fuel import (
-    fuel_required_litres,
-)
+from smart_waste.models.fuel import fuel_required_litres
 
 
 class TruckStatus(str, Enum):
@@ -31,6 +29,7 @@ class Truck:
 
     current_load_tonnes: float = 0.0
     fuel_remaining_litres: float | None = None
+
     cumulative_distance_km: float = 0.0
     cumulative_fuel_used_litres: float = 0.0
     cumulative_refuelled_litres: float = 0.0
@@ -41,7 +40,12 @@ class Truck:
     combined_returns: int = 0
 
     status: TruckStatus = TruckStatus.IDLE
-    next_event_time_hours: float = 0.0
+
+    next_event_time_hours: float | None = None
+
+    travel_origin_node: int | str | None = None
+    destination_node: int | str | None = None
+    pending_distance_km: float = 0.0
 
     route_nodes: list[int | str] = field(
         default_factory=list
@@ -73,14 +77,13 @@ class Truck:
                 "fuel_efficiency_km_per_litre must be positive"
             )
 
-        if self.current_load_tonnes < 0.0:
+        if not (
+            0.0
+            <= self.current_load_tonnes
+            <= self.capacity_tonnes
+        ):
             raise ValueError(
-                "current_load_tonnes cannot be negative"
-            )
-
-        if self.current_load_tonnes > self.capacity_tonnes:
-            raise ValueError(
-                "current load cannot exceed truck capacity"
+                "current load must be within truck capacity"
             )
 
         if self.fuel_remaining_litres is None:
@@ -97,13 +100,23 @@ class Truck:
                 "fuel_remaining_litres must be within tank capacity"
             )
 
-        if self.next_event_time_hours < 0.0:
+        if (
+            self.next_event_time_hours is not None
+            and self.next_event_time_hours < 0.0
+        ):
             raise ValueError(
                 "next_event_time_hours cannot be negative"
             )
 
+        if self.pending_distance_km < 0.0:
+            raise ValueError(
+                "pending_distance_km cannot be negative"
+            )
+
         if not self.route_nodes:
-            self.route_nodes.append(self.current_node)
+            self.route_nodes.append(
+                self.current_node
+            )
 
     @property
     def remaining_capacity_tonnes(self) -> float:
@@ -111,6 +124,10 @@ class Truck:
             self.capacity_tonnes
             - self.current_load_tonnes
         )
+
+    @property
+    def is_travelling(self) -> bool:
+        return self.status == TruckStatus.TRAVELLING
 
     def can_load(self, mass_tonnes: float) -> bool:
         if mass_tonnes < 0.0:
@@ -137,31 +154,44 @@ class Truck:
         self.current_load_tonnes = 0.0
         return unloaded
 
-    def travel(
+    def begin_travel(
         self,
         *,
         destination_node: int | str,
         distance_km: float,
     ) -> float:
         """
-        Apply one physical road movement.
+        Begin physical travel without changing current_node.
 
-        Returns elapsed travel time in hours.
+        Fuel is reserved/consumed at departure so the truck can
+        never schedule movement that exceeds its remaining fuel.
+
+        Returns fuel consumed in litres.
         """
 
-        required = fuel_required_litres(
+        if self.status != TruckStatus.IDLE:
+            raise RuntimeError(
+                "truck must be idle before beginning travel"
+            )
+
+        if distance_km < 0.0:
+            raise ValueError(
+                "distance_km cannot be negative"
+            )
+
+        required_fuel = fuel_required_litres(
             distance_km,
             efficiency_km_per_litre=(
                 self.fuel_efficiency_km_per_litre
             ),
         )
 
-        if required > self.fuel_remaining_litres:
+        if required_fuel > self.fuel_remaining_litres:
             raise ValueError(
                 "insufficient fuel for requested movement"
             )
 
-        self.fuel_remaining_litres -= required
+        self.fuel_remaining_litres -= required_fuel
 
         if self.fuel_remaining_litres < -1e-12:
             raise RuntimeError(
@@ -173,12 +203,64 @@ class Truck:
             self.fuel_remaining_litres,
         )
 
-        self.cumulative_distance_km += distance_km
-        self.cumulative_fuel_used_litres += required
-        self.current_node = destination_node
-        self.route_nodes.append(destination_node)
+        self.cumulative_fuel_used_litres += (
+            required_fuel
+        )
 
-        return distance_km / self.speed_km_per_hour
+        self.travel_origin_node = (
+            self.current_node
+        )
+        self.destination_node = (
+            destination_node
+        )
+        self.pending_distance_km = (
+            distance_km
+        )
+
+        self.status = TruckStatus.TRAVELLING
+
+        return required_fuel
+
+    def complete_travel(self) -> float:
+        """
+        Complete the pending movement at its arrival event.
+
+        Only now does current_node change to the destination.
+
+        Returns completed road distance in kilometres.
+        """
+
+        if self.status != TruckStatus.TRAVELLING:
+            raise RuntimeError(
+                "truck is not travelling"
+            )
+
+        if self.destination_node is None:
+            raise RuntimeError(
+                "travelling truck has no destination"
+            )
+
+        completed_distance = (
+            self.pending_distance_km
+        )
+
+        destination = (
+            self.destination_node
+        )
+
+        self.current_node = destination
+        self.cumulative_distance_km += (
+            completed_distance
+        )
+        self.route_nodes.append(destination)
+
+        self.travel_origin_node = None
+        self.destination_node = None
+        self.pending_distance_km = 0.0
+        self.next_event_time_hours = None
+        self.status = TruckStatus.IDLE
+
+        return completed_distance
 
     def refuel_full(self) -> float:
         """Refill the tank and return litres added."""
@@ -192,6 +274,8 @@ class Truck:
             self.fuel_capacity_litres
         )
 
-        self.cumulative_refuelled_litres += added
+        self.cumulative_refuelled_litres += (
+            added
+        )
 
         return added
