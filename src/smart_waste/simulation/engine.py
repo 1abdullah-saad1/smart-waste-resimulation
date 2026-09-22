@@ -18,10 +18,11 @@ EventHandler = Callable[
 
 class SimulationEngine:
     """
-    Minimal deterministic discrete-event simulation engine.
+    Deterministic discrete-event simulation engine.
 
-    The engine owns temporal progression.
-    Policies do not advance simulation time directly.
+    The engine exclusively owns temporal progression.
+    Multiple handlers may observe/process the same event in
+    registration order.
     """
 
     def __init__(
@@ -31,6 +32,7 @@ class SimulationEngine:
         event_queue: EventQueue | None = None,
     ) -> None:
         self.state = state
+
         self.event_queue = (
             EventQueue()
             if event_queue is None
@@ -39,7 +41,7 @@ class SimulationEngine:
 
         self._handlers: dict[
             EventType,
-            EventHandler,
+            list[EventHandler],
         ] = {}
 
         self.processed_events = 0
@@ -49,12 +51,13 @@ class SimulationEngine:
         event_type: EventType,
         handler: EventHandler,
     ) -> None:
-        self._handlers[event_type] = handler
+        self._handlers.setdefault(
+            event_type,
+            [],
+        ).append(handler)
 
     def step(self) -> SimulationEvent:
-        """
-        Process exactly one earliest event.
-        """
+        """Process exactly one earliest event."""
 
         event = self.event_queue.pop()
 
@@ -62,11 +65,12 @@ class SimulationEngine:
             event.time_hours
         )
 
-        handler = self._handlers.get(
-            event.event_type
+        handlers = self._handlers.get(
+            event.event_type,
+            (),
         )
 
-        if handler is not None:
+        for handler in handlers:
             handler(
                 self.state,
                 event,
@@ -87,20 +91,28 @@ class SimulationEngine:
         """
         Process events chronologically.
 
-        Returns number of events processed during this call.
+        Returns the number of events processed during this call.
         """
 
-        if until_hours is not None and until_hours < 0.0:
+        if (
+            until_hours is not None
+            and until_hours < 0.0
+        ):
             raise ValueError(
                 "until_hours cannot be negative"
             )
 
-        if max_events is not None and max_events < 0:
+        if (
+            max_events is not None
+            and max_events < 0
+        ):
             raise ValueError(
                 "max_events cannot be negative"
             )
 
-        processed_at_start = self.processed_events
+        processed_at_start = (
+            self.processed_events
+        )
 
         while not self.event_queue.is_empty:
             if max_events is not None:
@@ -112,7 +124,9 @@ class SimulationEngine:
                 if processed_this_run >= max_events:
                     break
 
-            next_event = self.event_queue.peek()
+            next_event = (
+                self.event_queue.peek()
+            )
 
             if (
                 until_hours is not None

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from math import isclose
+from typing import Any
 
 from smart_waste.models.events import (
     EventType,
@@ -14,15 +15,9 @@ from smart_waste.movement.routing_distance import (
 from smart_waste.movement.travel_time import (
     travel_time_hours,
 )
-from smart_waste.simulation.engine import (
-    SimulationEngine,
-)
-from smart_waste.simulation.event_queue import (
-    EventQueue,
-)
-from smart_waste.simulation.state import (
-    SimulationState,
-)
+from smart_waste.simulation.engine import SimulationEngine
+from smart_waste.simulation.event_queue import EventQueue
+from smart_waste.simulation.state import SimulationState
 
 
 class MovementError(RuntimeError):
@@ -35,13 +30,24 @@ def schedule_truck_travel(
     event_queue: EventQueue,
     truck_id: int,
     destination_node: int | str,
+    arrival_event_type: EventType = EventType.TRUCK_ARRIVAL,
+    metadata: dict[str, Any] | None = None,
 ) -> SimulationEvent:
     """
-    Begin a physical road trip and schedule its arrival.
+    Begin physical road travel and schedule its arrival.
 
-    The truck remains at its origin node until the
-    TRUCK_ARRIVAL event is processed.
+    The truck remains physically at the origin until the
+    corresponding arrival event is processed.
     """
+
+    if arrival_event_type not in {
+        EventType.TRUCK_ARRIVAL,
+        EventType.DEPOT_ARRIVAL,
+    }:
+        raise MovementError(
+            "arrival_event_type must be TRUCK_ARRIVAL "
+            "or DEPOT_ARRIVAL"
+        )
 
     if truck_id not in state.trucks:
         raise MovementError(
@@ -50,7 +56,7 @@ def schedule_truck_travel(
 
     if destination_node not in state.road_graph.graph:
         raise MovementError(
-            f"destination node is not in road graph: "
+            "destination node is not in road graph: "
             f"{destination_node!r}"
         )
 
@@ -77,9 +83,7 @@ def schedule_truck_travel(
 
     elapsed_hours = travel_time_hours(
         distance_km=distance_km,
-        speed_km_per_hour=(
-            truck.speed_km_per_hour
-        ),
+        speed_km_per_hour=truck.speed_km_per_hour,
     )
 
     arrival_time_hours = (
@@ -96,16 +100,32 @@ def schedule_truck_travel(
         arrival_time_hours
     )
 
+    payload: dict[str, Any] = {
+        "origin_node": origin_node,
+        "destination_node": destination_node,
+        "distance_km": distance_km,
+        "path": list(path),
+    }
+
+    if metadata is not None:
+        reserved_keys = (
+            set(payload)
+            & set(metadata)
+        )
+
+        if reserved_keys:
+            raise MovementError(
+                "movement metadata cannot override reserved keys: "
+                f"{sorted(reserved_keys)}"
+            )
+
+        payload.update(metadata)
+
     return event_queue.schedule(
         time_hours=arrival_time_hours,
-        event_type=EventType.TRUCK_ARRIVAL,
+        event_type=arrival_event_type,
         entity_id=truck_id,
-        payload={
-            "origin_node": origin_node,
-            "destination_node": destination_node,
-            "distance_km": distance_km,
-            "path": list(path),
-        },
+        payload=payload,
     )
 
 
@@ -113,11 +133,12 @@ def handle_truck_arrival(
     state: SimulationState,
     event: SimulationEvent,
 ) -> None:
-    """
-    Finalize physical movement at the scheduled arrival time.
-    """
+    """Finalize physical truck movement."""
 
-    if event.event_type != EventType.TRUCK_ARRIVAL:
+    if event.event_type not in {
+        EventType.TRUCK_ARRIVAL,
+        EventType.DEPOT_ARRIVAL,
+    }:
         raise MovementError(
             "arrival handler received wrong event type"
         )
@@ -145,10 +166,7 @@ def handle_truck_arrival(
         "destination_node"
     )
 
-    if (
-        expected_destination
-        != truck.destination_node
-    ):
+    if expected_destination != truck.destination_node:
         raise MovementError(
             "arrival destination does not match "
             "truck pending destination"
@@ -196,9 +214,19 @@ def handle_truck_arrival(
 def register_movement_handlers(
     engine: SimulationEngine,
 ) -> None:
-    """Register physical movement event handlers."""
+    """
+    Register physical arrival handling.
+
+    DEPOT_ARRIVAL may subsequently have an additional depot
+    handler. Registration order is therefore significant.
+    """
 
     engine.register_handler(
         EventType.TRUCK_ARRIVAL,
+        handle_truck_arrival,
+    )
+
+    engine.register_handler(
+        EventType.DEPOT_ARRIVAL,
         handle_truck_arrival,
     )

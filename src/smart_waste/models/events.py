@@ -10,6 +10,7 @@ class EventType(str, Enum):
     BIN_SERVICE_COMPLETE = "bin_service_complete"
     DEPOT_ARRIVAL = "depot_arrival"
     DEPOT_SERVICE_START = "depot_service_start"
+    DEPOT_UNLOAD_COMPLETE = "depot_unload_complete"
     DEPOT_SERVICE_COMPLETE = "depot_service_complete"
     SENSOR_SAMPLE = "sensor_sample"
     HAZARD = "hazard"
