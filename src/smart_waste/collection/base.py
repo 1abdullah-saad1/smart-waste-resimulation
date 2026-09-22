@@ -49,6 +49,64 @@ class TruckPolicyView:
 
 
 @dataclass(frozen=True)
+class CandidateMask:
+    """
+    Immutable policy-side coordination mask.
+
+    This mask expresses reservation availability only.
+
+    It does NOT certify:
+    - truck capacity,
+    - fuel feasibility,
+    - road reachability,
+    - service-time feasibility.
+
+    Those remain simulation-core responsibilities.
+    """
+
+    bin_ids: tuple[int, ...]
+    selectable: tuple[bool, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.bin_ids) != len(self.selectable):
+            raise ValueError(
+                "bin_ids and selectable must have equal length"
+            )
+
+        if len(set(self.bin_ids)) != len(self.bin_ids):
+            raise ValueError(
+                "CandidateMask bin_ids must be unique"
+            )
+
+    @property
+    def selectable_bin_ids(self) -> tuple[int, ...]:
+        return tuple(
+            bin_id
+            for bin_id, allowed in zip(
+                self.bin_ids,
+                self.selectable,
+                strict=True,
+            )
+            if allowed
+        )
+
+    def is_selectable(
+        self,
+        bin_id: int,
+    ) -> bool:
+        try:
+            index = self.bin_ids.index(
+                bin_id
+            )
+        except ValueError as exc:
+            raise KeyError(
+                f"unknown bin_id: {bin_id}"
+            ) from exc
+
+        return self.selectable[index]
+
+
+@dataclass(frozen=True)
 class PolicyView:
     """
     Immutable snapshot of policy-visible simulation state.
@@ -60,6 +118,51 @@ class PolicyView:
     depot_node: int | str
     bins: tuple[BinPolicyView, ...]
     trucks: tuple[TruckPolicyView, ...]
+
+    def reservation_availability_mask(
+        self,
+    ) -> CandidateMask:
+        """
+        Return a deterministic mask aligned with self.bins.
+
+        True means the bin is currently unreserved and may be
+        requested by a collection policy.
+
+        This is coordination availability, not physical
+        feasibility.
+        """
+
+        return CandidateMask(
+            bin_ids=tuple(
+                bin_.bin_id
+                for bin_ in self.bins
+            ),
+            selectable=tuple(
+                not bin_.is_reserved
+                for bin_ in self.bins
+            ),
+        )
+
+    def available_bins(
+        self,
+    ) -> tuple[BinPolicyView, ...]:
+        """
+        Return currently unreserved bins in stable bin-id order.
+        """
+
+        return tuple(
+            bin_
+            for bin_ in self.bins
+            if not bin_.is_reserved
+        )
+
+    def available_bin_ids(
+        self,
+    ) -> tuple[int, ...]:
+        return tuple(
+            bin_.bin_id
+            for bin_ in self.available_bins()
+        )
 
     def bin_by_id(
         self,
