@@ -348,9 +348,30 @@ def test_reward_uses_exact_core_distance_and_physical_collection():
         )
     )
 
-    # 1*0.95 - 0.5*1.25
+    assert (
+        record.distance_km
+        == pytest.approx(
+            1.25
+        )
+    )
+
+    assert (
+        record.terminal_return_distance_km
+        == pytest.approx(
+            1.0
+        )
+    )
+
+    assert (
+        record.reward_distance_km
+        == pytest.approx(
+            2.25
+        )
+    )
+
+    # 1*0.95 - 0.5*(1.25 + 1.0)
     assert record.reward == pytest.approx(
-        0.325
+        -0.175
     )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 
+import networkx as nx
 import numpy as np
 
 from smart_waste.collection.base import (
@@ -61,7 +62,16 @@ class PhysicalTransitionRecord:
     end_time_hours: float
     elapsed_hours: float
 
+    # Actual Core movement accumulated before transition
+    # closure/service completion.
     distance_km: float
+
+    # Additional shortest-road terminal return charged only when
+    # this transition makes the policy globally complete.
+    terminal_return_distance_km: float
+
+    # Distance term actually used in the DQN reward.
+    reward_distance_km: float
 
     collection_fraction: float
 
@@ -364,6 +374,85 @@ class PhysicalDQNTrainingPolicy(
 
         return 0.0
 
+    def _terminal_return_distance_km(
+        self,
+        *,
+        view: PolicyView,
+    ) -> float:
+        """
+        Return the exact deterministic shortest-road distance
+        required to settle the fleet at the depot after global
+        policy completion.
+
+        This is reward accounting only. It does not move trucks
+        or mutate physical state. The Orchestrator/Core still
+        performs the actual terminal returns.
+
+        The legacy DQN environment charged all terminal fleet
+        returns to the final transition. This preserves that
+        objective while using the revised road network.
+        """
+
+        road_graph = (
+            self._policy
+            .state_adapter
+            .road_graph
+        )
+
+        total = 0.0
+
+        for truck in view.trucks:
+            if (
+                truck.current_node
+                == view.depot_node
+            ):
+                continue
+
+            try:
+                distance = (
+                    nx.shortest_path_length(
+                        road_graph.graph,
+                        source=(
+                            truck.current_node
+                        ),
+                        target=(
+                            view.depot_node
+                        ),
+                        weight=(
+                            road_graph
+                            .length_attribute
+                        ),
+                    )
+                )
+            except (
+                nx.NetworkXNoPath,
+                nx.NodeNotFound,
+            ) as exc:
+                raise PhysicalDQNTrainingError(
+                    "terminal depot return is not "
+                    "reachable on the physical road graph"
+                ) from exc
+
+            distance = float(
+                distance
+            )
+
+            if (
+                not isfinite(
+                    distance
+                )
+                or distance < 0.0
+            ):
+                raise PhysicalDQNTrainingError(
+                    "invalid terminal return distance"
+                )
+
+            total += distance
+
+        return float(
+            total
+        )
+
     def _reward(
         self,
         *,
@@ -475,6 +564,19 @@ class PhysicalDQNTrainingPolicy(
             ),
         )
 
+        terminal_return_distance = (
+            self._terminal_return_distance_km(
+                view=view
+            )
+            if terminal
+            else 0.0
+        )
+
+        reward_distance = (
+            distance
+            + terminal_return_distance
+        )
+
         hazard_delay_term = (
             self._hazard_delay_term(
                 view=view,
@@ -492,7 +594,7 @@ class PhysicalDQNTrainingPolicy(
             collection_fraction=(
                 collection_fraction
             ),
-            distance_km=distance,
+            distance_km=reward_distance,
             hazard_delay_term=(
                 hazard_delay_term
             ),
@@ -542,6 +644,12 @@ class PhysicalDQNTrainingPolicy(
                 ),
                 elapsed_hours=elapsed,
                 distance_km=distance,
+                terminal_return_distance_km=(
+                    terminal_return_distance
+                ),
+                reward_distance_km=(
+                    reward_distance
+                ),
                 collection_fraction=(
                     collection_fraction
                 ),

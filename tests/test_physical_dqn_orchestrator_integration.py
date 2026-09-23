@@ -391,14 +391,28 @@ def test_physical_dqn_end_to_end_transition_uses_core_distance():
         )
     )
 
+    assert (
+        transition.terminal_return_distance_km
+        == pytest.approx(
+            2.5
+        )
+    )
+
+    assert (
+        transition.reward_distance_km
+        == pytest.approx(
+            5.0
+        )
+    )
+
     # R =
     # 1.0 * 0.95
-    # - 0.5 * 2.5
-    # = -0.30
+    # - 0.5 * (2.5 outbound + 2.5 terminal return)
+    # = -1.55
     assert (
         transition.reward
         == pytest.approx(
-            -0.30
+            -1.55
         )
     )
 
@@ -547,13 +561,28 @@ def test_capacity_forced_depot_detour_is_charged_to_pending_dqn_action():
         )
     )
 
+    assert (
+        transition.terminal_return_distance_km
+        == pytest.approx(
+            3.0
+        )
+    )
+
+    assert (
+        transition.reward_distance_km
+        == pytest.approx(
+            8.0
+        )
+    )
+
     # R =
-    # 0.95 - 0.5 * 5
-    # = -1.55
+    # 0.95 - 0.5 * (5 km action/depot detour
+    #                + 3 km terminal return)
+    # = -3.05
     assert (
         transition.reward
         == pytest.approx(
-            -1.55
+            -3.05
         )
     )
 
