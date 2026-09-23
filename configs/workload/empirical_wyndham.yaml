@@ -1,0 +1,47 @@
+schema_version: empirical-wyndham-workload-v1
+
+source:
+  profile_library: data/processed/workload/wyndham_empirical_profiles.csv
+  profile_library_sha256: 0a7fdda9659d6eafc54aff2c965162d4a2cec1216f33ccdd420b0e96124c6bbb
+  raw_dataset_sha256: b2d7f95bb5b235c16c93a14d6d13f736ad682dd6707ec3b2b1841ef99f364ebb
+
+research_design:
+  num_bins: 1000
+  master_workload_seed: 20261002
+  replicate_ids:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+
+sampling:
+  method: deterministic_without_replacement
+  paired_profile_sampling: true
+  replacement_within_replicate: false
+  replacement_across_replicates: allowed
+
+temporal_semantics:
+  source_resolution: daily
+  simulation_rate_unit: percent_per_hour
+  within_run_fill_rate: constant
+  between_replicates: empirical_resampling
+
+data_rules:
+  retain_zero_growth: true
+  exclude_negative_collection_reset_intervals: true
+  exclude_conflicting_duplicate_dates: true
+  source_level_to_percent_multiplier: 10.0
+
+fairness:
+  same_workload_replicate_across_topologies: true
+  topologies:
+    - manhattan
+    - superblock
+    - hex
+    - radial_concentric

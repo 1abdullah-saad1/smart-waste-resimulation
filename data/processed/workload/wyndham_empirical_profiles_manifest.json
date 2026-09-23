@@ -1,0 +1,70 @@
+{
+  "duplicate_resolution": {
+    "conflict_audit_file": "data/processed/workload/wyndham_conflicting_duplicate_rows.csv",
+    "conflicting_duplicate_key_count": 2,
+    "conflicting_duplicate_rows_excluded": 19,
+    "conflicting_keys": [
+      {
+        "fullness_values": "4.0|6.0",
+        "row_count": 6,
+        "serial_number": 1511203,
+        "timestamp": "2019-01-30"
+      },
+      {
+        "fullness_values": "0.0|8.0",
+        "row_count": 13,
+        "serial_number": 1511205,
+        "timestamp": "2019-01-24"
+      }
+    ],
+    "deduplicated_record_count": 30657,
+    "duplicate_key_count_total": 160,
+    "resolution_rule": "collapse identical-fullness duplicate serial/date keys; exclude entire serial/date key when duplicate fullness values conflict",
+    "same_value_duplicate_rows_collapsed": 751,
+    "total_rows_removed_before_transition_building": 770
+  },
+  "normalization": {
+    "conflicting_duplicate_rule": "exclude entire conflicting serial/date observation rather than selecting or averaging fullness values",
+    "fill_percent_rule": "fill_percent = 10 * source_fullness_level",
+    "negative_delta_rule": "exclude as collection/reset candidate",
+    "profile_pairing_rule": "initial fill and fill rate remain paired from the same empirical daily interval",
+    "rate_rule": "fill_rate_percent_per_hour = (end_fill_percent - initial_fill_percent) / 24",
+    "source_fullness_levels": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "temporal_resolution": "consecutive calendar-day intervals only",
+    "zero_delta_rule": "retain as empirical zero-growth profile"
+  },
+  "profile_library": {
+    "daily_transition_count": 30177,
+    "file": "data/processed/workload/wyndham_empirical_profiles.csv",
+    "fill_rate_percent_per_hour_max": 4.166666666666667,
+    "fill_rate_percent_per_hour_mean": 0.5569422061501775,
+    "fill_rate_percent_per_hour_median": 0.0,
+    "initial_fill_percent_mean": 18.19975629888762,
+    "initial_fill_percent_median": 0.0,
+    "negative_collection_reset_count": 4736,
+    "positive_growth_count": 9456,
+    "positive_growth_fraction_retained": 0.3716835030069573,
+    "retained_profile_count": 25441,
+    "sha256": "0a7fdda9659d6eafc54aff2c965162d4a2cec1216f33ccdd420b0e96124c6bbb",
+    "zero_growth_count": 15985,
+    "zero_growth_fraction_retained": 0.6283164969930427
+  },
+  "schema_version": "wyndham-empirical-profile-v1",
+  "source": {
+    "dataset": "Wyndham Smart Bin Fill Level Historical",
+    "date_max": "2021-05-03",
+    "date_min": "2018-06-26",
+    "raw_feature_count": 31427,
+    "raw_file": "data/external/wyndham/wyndham_smartbin_filllevel.json",
+    "raw_sha256": "b2d7f95bb5b235c16c93a14d6d13f736ad682dd6707ec3b2b1841ef99f364ebb",
+    "unique_serial_number_count": 33,
+    "url": "https://data.gov.au/data/dataset/660a87c3-480e-498b-bfc3-ec84dc504b1c/resource/58ef5329-3141-4019-be41-24f2584256bc/download/wyndham_smartbin_filllevel.json"
+  }
+}

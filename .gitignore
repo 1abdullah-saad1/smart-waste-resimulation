@@ -35,3 +35,4 @@ Thumbs.db
 
 # Development-only experiment evidence
 results/manifests/development-smoke/
+data/external/wyndham/wyndham_smartbin_filllevel.json

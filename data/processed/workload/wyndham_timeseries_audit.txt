@@ -1,0 +1,154 @@
+=== WYNDHAM TIME-SERIES AUDIT ===
+raw_sha256: b2d7f95bb5b235c16c93a14d6d13f736ad682dd6707ec3b2b1841ef99f364ebb
+records: 31427
+unique_serial_numbers: 33
+unique_descriptions: 32
+invalid_timestamp_records: 0
+date_min: 2018-06-26 00:00:00
+date_max: 2021-05-03 00:00:00
+calendar_span_days: 1043
+
+=== LATEST FULLNESS ===
+nonnumeric_or_missing: 0
+minimum: 0
+maximum: 10
+unique_values: (np.int64(0), np.int64(2), np.int64(4), np.int64(6), np.int64(8), np.int64(10))
+value_counts:
+  0: 16359
+  2: 2780
+  4: 3763
+  6: 3647
+  8: 3645
+  10: 1233
+
+=== NORMALIZED FILL PERCENT ===
+q00: 0.0
+q05: 0.0
+q25: 0.0
+q50: 0.0
+q75: 60.0
+q80: 60.0
+q90: 80.0
+q95: 80.0
+q100: 100.0
+observations_ge_80_percent: 4878
+fraction_ge_80_percent: 0.1552168517516785
+observations_eq_100_percent: 1233
+
+=== FULLNESS_THRESHOLD ===
+8 : 30437
+6 : 990
+
+=== AGE_THRESHOLD ===
+0 : 31427
+
+=== REASON ===
+'NOT_READY' : 25776
+'FULLNESS' : 4208
+'ALERT' : 1443
+
+=== POSITION ===
+'center' : 31427
+
+=== SERIAL/DATE DUPLICATES ===
+duplicate_rows: 928
+duplicate_keys: 160
+ serial_number  timestamp  latest_fullness    reason
+       1510830 2018-11-29                4 NOT_READY
+       1510830 2018-11-29                4 NOT_READY
+       1510830 2018-11-29                4 NOT_READY
+       1510830 2018-11-29                4 NOT_READY
+       1510830 2018-11-29                4 NOT_READY
+       1510830 2018-11-29                4 NOT_READY
+       1510830 2018-12-26                2 NOT_READY
+       1510830 2018-12-26                2 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+       1510830 2019-01-24                0 NOT_READY
+
+=== PER-BIN RECORD COUNTS ===
+minimum: 181
+median: 976.0
+maximum: 990
+
+=== TEMPORAL INTERVALS ===
+valid_positive_time_intervals: 30626
+most_common_dt_days:
+  1.0: 30178
+  2.0: 128
+  6.0: 95
+  14.0: 64
+  9.0: 33
+  3.0: 32
+  8.0: 32
+  21.0: 32
+  10.0: 31
+  293.0: 1
+
+=== CONSECUTIVE DAILY TRANSITIONS ===
+daily_intervals: 30178
+positive: 9457
+zero: 15985
+negative_candidate_collection: 4736
+positive_fraction: 0.31337398104579495
+zero_fraction: 0.5296905030154417
+negative_fraction: 0.15693551593876334
+
+daily_delta_level_counts:
+  -10.0: 298
+  -8.0: 3121
+  -6.0: 675
+  -4.0: 375
+  -2.0: 267
+  0.0: 15985
+  2.0: 4821
+  4.0: 2659
+  6.0: 1136
+  8.0: 746
+  10.0: 95
+
+=== NON-COLLECTION RATE LIBRARY CANDIDATES ===
+nonnegative_daily_intervals: 25442
+positive_growth_intervals: 9457
+
+nonnegative_rate_percent_per_hour:
+  q00: 0.0
+  q05: 0.0
+  q25: 0.0
+  q50: 0.0
+  q75: 0.8333333333333334
+  q90: 1.6666666666666667
+  q95: 2.5
+  q99: 3.3333333333333335
+  q100: 4.166666666666667
+  mean: 0.5570185782040197
+
+positive_rate_percent_per_hour:
+  q00: 0.8333333333333334
+  q05: 0.8333333333333334
+  q25: 0.8333333333333334
+  q50: 0.8333333333333334
+  q75: 1.6666666666666667
+  q90: 2.5
+  q95: 3.3333333333333335
+  q99: 3.7000000000004247
+  q100: 4.166666666666667
+  mean: 1.498537238729689
+
+=== NEGATIVE DROP DISTRIBUTION ===
+  -10.0: 298
+  -8.0: 3121
+  -6.0: 675
+  -4.0: 375
+  -2.0: 267
+
+=== AUDIT COMPLETE ===
