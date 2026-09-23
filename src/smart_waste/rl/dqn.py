@@ -18,7 +18,7 @@ class DQNConfig:
 
     gamma: float = 0.95
 
-    learning_rate: float = 0.001
+    learning_rate: float = 0.0001
 
     replay_capacity: int = 100_000
     batch_size: int = 64

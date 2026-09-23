@@ -1,0 +1,58 @@
+schema_version: dqn-routing-v1
+
+provenance:
+  architecture: manuscript
+  gamma: manuscript
+  learning_rate: manuscript
+  replay_capacity: manuscript
+  batch_size: manuscript
+  epsilon_start: manuscript
+  epsilon_end: manuscript
+  reward_weights: manuscript
+
+  epsilon_decay_episodes: reconstruction
+  replay_warmup_transitions: reconstruction
+  target_update_steps: reconstruction
+  near_full_threshold_percent: reconstruction
+  prediction_horizon_hours: reconstruction
+  hazard_scalar_encoding: reconstruction
+
+state:
+  num_bins: 1000
+  dimension: 3002
+
+network:
+  hidden_layers:
+    - 256
+    - 128
+    - 64
+
+training:
+  learning_rate: 0.0001
+  gamma: 0.95
+  replay_capacity: 100000
+  batch_size: 64
+
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+
+  epsilon_decay_episodes: 100
+  replay_warmup_transitions: 1000
+  target_update_steps: 250
+
+routing:
+  near_full_threshold_percent: 90.0
+  prediction_horizon_hours: 4.0
+  full_bin_sla_limit_hours: 6.0
+
+reward:
+  collection: 1.0
+  distance: 0.5
+  hazard_delay: 5.0
+  sla_violation: 3.0
+
+hazard_encoding:
+  none: 0.0
+  excess_moisture: 0.3333333333333333
+  predicted_combustion_risk: 0.6666666666666666
+  emergency_fire: 1.0
