@@ -161,6 +161,35 @@ class DQNCollectionPolicy(CollectionPolicy):
     ) -> DQNPhysicalStateAdapter:
         return self._state_adapter
 
+    @property
+    def agent(
+        self,
+    ) -> DQNAgent:
+        return self._agent
+
+    @property
+    def epsilon(
+        self,
+    ) -> float:
+        return self._epsilon
+
+    def set_epsilon(
+        self,
+        epsilon: float,
+    ) -> None:
+        if not (
+            0.0
+            <= epsilon
+            <= 1.0
+        ):
+            raise ValueError(
+                "epsilon must be in [0, 1]"
+            )
+
+        self._epsilon = float(
+            epsilon
+        )
+
     def initialize(
         self,
         view: PolicyView,

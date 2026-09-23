@@ -165,6 +165,9 @@ def build_policy_view(
                 truck.fuel_remaining_litres
             ),
             status=truck.status,
+            cumulative_distance_km=float(
+                truck.cumulative_distance_km
+            ),
         )
         for truck in sorted(
             state.trucks.values(),

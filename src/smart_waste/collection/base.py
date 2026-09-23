@@ -76,6 +76,11 @@ class TruckPolicyView:
     fuel_remaining_litres: float
     status: TruckStatus
 
+    # Read-only physical accounting counter exposed for
+    # transition/reward measurement. Collection policies
+    # may observe it but never mutate physical truck state.
+    cumulative_distance_km: float = 0.0
+
 
 @dataclass(frozen=True)
 class CandidateMask:

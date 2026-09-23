@@ -271,3 +271,30 @@ def test_policy_lifecycle_callbacks_are_supported() -> None:
 
     assert policy.completed_bins == [1]
     assert policy.is_complete(view)
+
+
+def test_policy_view_exposes_read_only_physical_distance_counter():
+    """
+    Training/reward logic may observe the Core's cumulative
+    distance counter without taking responsibility for movement.
+    """
+    from smart_waste.collection.base import (
+        TruckPolicyView,
+    )
+    from smart_waste.models.truck import (
+        TruckStatus,
+    )
+
+    truck = TruckPolicyView(
+        truck_id=0,
+        current_node=1,
+        remaining_capacity_tonnes=9.0,
+        fuel_remaining_litres=190.0,
+        status=TruckStatus.IDLE,
+        cumulative_distance_km=12.5,
+    )
+
+    assert (
+        truck.cumulative_distance_km
+        == 12.5
+    )
