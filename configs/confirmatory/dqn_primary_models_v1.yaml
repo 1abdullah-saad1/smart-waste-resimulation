@@ -1,0 +1,64 @@
+schema_version: dqn-primary-confirmatory-models-v1
+version: 1.0.0
+
+purpose: >
+  Freeze the DQN policies used for the primary confirmatory benchmark
+  before any confirmatory performance results are examined.
+
+selection_rule: >
+  Use replicate 1 for every topology. Replicate 1 was the first
+  pre-registered seed-sensitivity replicate. No model was selected
+  according to confirmatory performance, validation reward, best
+  checkpoint reward, or post-hoc topology ranking.
+
+training_evidence_commit:
+  593331bd2d9234da124875d13a358fbc5678a005
+
+seed_sensitivity_preregistration_commit:
+  41cae5cfbc66ed88d04de1f8d85aff1b699e3c96
+
+execution_source_commit:
+  b3dc3be2526f617115ed9eef1d4ea0395b5607da
+
+replicate:
+  number: 1
+  master_seed: 173648848
+  protocol_sha256: 496d529096f67af2a13fe8c379a301826342c267cb496a420e3337038522a80b
+
+models:
+
+  manhattan:
+    agent_seed: 728103279
+    episodes_completed: 416
+    checkpoint_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/manhattan/model_checkpoint.pt
+    summary_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/manhattan/training_summary.json
+    checkpoint_sha256: 2af4195a15c97d83757a67c51c14fb8780c4bd7a8667d733a7dc3d5052bb36a9
+
+  superblock:
+    agent_seed: 1427163444
+    episodes_completed: 544
+    checkpoint_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/superblock/model_checkpoint.pt
+    summary_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/superblock/training_summary.json
+    checkpoint_sha256: 82bf42df6c15821d1e8edc37c3413e5f2a1c98ea160b7523cb15af3610862efe
+
+  hex:
+    agent_seed: 1560540830
+    episodes_completed: 288
+    checkpoint_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/hex/model_checkpoint.pt
+    summary_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/hex/training_summary.json
+    checkpoint_sha256: bb4e20a10d703e81a90ce7b86ff7e2125e634a26cee08c58bb4b0360c6b0cee4
+
+  radial_concentric:
+    agent_seed: 495676645
+    episodes_completed: 256
+    checkpoint_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/radial_concentric/model_checkpoint.pt
+    summary_path: results/rl/diagnostic_seed_sensitivity_v1/replicate_01_seed_173648848/radial_concentric/training_summary.json
+    checkpoint_sha256: ed96504e33ef720439c564ca504e3e20cc36a56d6e06832357208ee3835a418d
+
+rules:
+  primary_benchmark_models_fixed: true
+  no_confirmatory_based_model_selection: true
+  no_best_seed_selection: true
+  no_checkpoint_reselection: true
+  no_additional_training: true
+  diagnostic_seed_replicates_not_used_for_primary_model_selection: true
