@@ -39,6 +39,11 @@ DEFAULT_OUTPUT_ROOT = Path(
     "results/rl/dqn_physical"
 )
 
+DEFAULT_PROTOCOL_V2_PATH = Path(
+    "configs/rl/"
+    "dqn_physical_convergence_v2.yaml"
+)
+
 
 class PhysicalDQNConvergenceTrainingError(
     RuntimeError
@@ -634,10 +639,15 @@ def train_topology_until_convergence(
     output_root: Path = (
         DEFAULT_OUTPUT_ROOT
     ),
+    protocol_path: Path = (
+        DEFAULT_PROTOCOL_V2_PATH
+    ),
     require_clean_git_tree: bool = True,
 ) -> dict:
     protocol = (
-        load_physical_convergence_protocol()
+        load_physical_convergence_protocol(
+            protocol_path
+        )
     )
 
     if (
@@ -970,11 +980,22 @@ def train_topology_until_convergence(
             fuel_stable = False
             validation_reward_stable = False
 
+        validation_metric_gate_ok = (
+            (
+                fuel_stable
+                and validation_reward_stable
+            )
+            if (
+                protocol
+                .validation_metric_stability_required
+            )
+            else True
+        )
+
         criteria_met = bool(
             reward_stable
             and loss_stable
-            and fuel_stable
-            and validation_reward_stable
+            and validation_metric_gate_ok
             and training_natural_ok
             and validation_natural_ok
         )
@@ -1086,6 +1107,21 @@ def train_topology_until_convergence(
         ),
         "protocol_sha256": (
             protocol.payload_sha256
+        ),
+        "protocol_schema_version": (
+            protocol.schema_version
+        ),
+        "protocol_version": (
+            protocol.protocol_version
+        ),
+        "protocol_path": (
+            Path(
+                protocol_path
+            ).as_posix()
+        ),
+        "validation_metric_stability_required": (
+            protocol
+            .validation_metric_stability_required
         ),
         "dataset_manifest_sha256": (
             protocol
@@ -1282,6 +1318,14 @@ def main() -> None:
     )
 
     parser.add_argument(
+        "--protocol-path",
+        type=Path,
+        default=(
+            DEFAULT_PROTOCOL_V2_PATH
+        ),
+    )
+
+    parser.add_argument(
         "--allow-dirty-tree",
         action="store_true",
         help=(
@@ -1298,6 +1342,9 @@ def main() -> None:
         ),
         output_root=(
             args.output_root
+        ),
+        protocol_path=(
+            args.protocol_path
         ),
         require_clean_git_tree=(
             not args.allow_dirty_tree

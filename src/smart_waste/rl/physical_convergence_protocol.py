@@ -68,6 +68,8 @@ class PhysicalConvergenceProtocol:
     require_training_natural_completion: bool
     require_validation_natural_completion: bool
 
+    validation_metric_stability_required: bool
+
     payload_sha256: str
 
 
@@ -84,12 +86,14 @@ def load_physical_convergence_protocol(
         )
     )
 
-    if (
-        payload[
-            "schema_version"
-        ]
-        != "dqn-physical-convergence-v1"
-    ):
+    schema_version = payload[
+        "schema_version"
+    ]
+
+    if schema_version not in {
+        "dqn-physical-convergence-v1",
+        "dqn-physical-convergence-v2",
+    }:
         raise PhysicalConvergenceProtocolError(
             "unexpected convergence protocol schema"
         )
@@ -207,8 +211,6 @@ def load_physical_convergence_protocol(
     for name in (
         "normalized_reward_slope_threshold",
         "normalized_loss_slope_threshold",
-        "max_validation_fuel_relative_change",
-        "max_validation_reward_relative_change",
     ):
         if float(
             convergence[
@@ -219,6 +221,55 @@ def load_physical_convergence_protocol(
                 f"{name} cannot be negative"
             )
 
+    if (
+        schema_version
+        == "dqn-physical-convergence-v1"
+    ):
+        fuel_change_threshold = float(
+            convergence[
+                "max_validation_fuel_relative_change"
+            ]
+        )
+
+        reward_change_threshold = float(
+            convergence[
+                "max_validation_reward_relative_change"
+            ]
+        )
+
+        validation_metric_stability_required = True
+
+    else:
+        fuel_change_threshold = float(
+            convergence[
+                "diagnostic_max_validation_fuel_relative_change"
+            ]
+        )
+
+        reward_change_threshold = float(
+            convergence[
+                "diagnostic_max_validation_reward_relative_change"
+            ]
+        )
+
+        validation_metric_stability_required = bool(
+            convergence[
+                "require_validation_metric_stability_for_convergence"
+            ]
+        )
+
+    if fuel_change_threshold < 0.0:
+        raise PhysicalConvergenceProtocolError(
+            "validation fuel-change threshold "
+            "cannot be negative"
+        )
+
+    if reward_change_threshold < 0.0:
+        raise PhysicalConvergenceProtocolError(
+            "validation reward-change threshold "
+            "cannot be negative"
+        )
+
     digest = hashlib.sha256(
         _canonical_json_bytes(
             payload
@@ -227,9 +278,7 @@ def load_physical_convergence_protocol(
 
     return PhysicalConvergenceProtocol(
         schema_version=(
-            payload[
-                "schema_version"
-            ]
+            schema_version
         ),
         protocol_version=(
             str(
@@ -267,15 +316,11 @@ def load_physical_convergence_protocol(
                 "normalized_loss_slope_threshold"
             ]
         ),
-        max_validation_fuel_relative_change=float(
-            convergence[
-                "max_validation_fuel_relative_change"
-            ]
+        max_validation_fuel_relative_change=(
+            fuel_change_threshold
         ),
-        max_validation_reward_relative_change=float(
-            convergence[
-                "max_validation_reward_relative_change"
-            ]
+        max_validation_reward_relative_change=(
+            reward_change_threshold
         ),
         patience_consecutive_checks=(
             patience
@@ -294,6 +339,9 @@ def load_physical_convergence_protocol(
             convergence[
                 "require_all_validation_runs_natural_completion"
             ]
+        ),
+        validation_metric_stability_required=(
+            validation_metric_stability_required
         ),
         payload_sha256=digest,
     )
