@@ -1,0 +1,38 @@
+{
+  "checkpoint_file_sha256": "e345447a64f93d94f17ee43e548b1dbd8672b4a9613f99c80c009070da50d454",
+  "classification": "development_nonconverged",
+  "confirmatory_data_used": false,
+  "converged": false,
+  "dataset_manifest_sha256": "18bbf059305886970d3bcfc363a2140a4fe32d837901bd3ccd67af8d24384133",
+  "diagnostic_resolution": "Training reward/loss were substantially stable, but protocol-v1 checkpoint-to-checkpoint validation fuel/reward stability remained above the predeclared 2 percent maximum criterion. Deterministic checkpoint reload reproduced all eight final validation conditions exactly. Result retained as development evidence.",
+  "episodes_completed": 640,
+  "files": {
+    "convergence_checks.json": {
+      "sha256": "da98d4f0e725384e94fb5ac2581634c3a1874fcd76adb86af22bf8b93fee4d3a",
+      "size_bytes": 8342
+    },
+    "model_checkpoint.pt": {
+      "sha256": "e345447a64f93d94f17ee43e548b1dbd8672b4a9613f99c80c009070da50d454",
+      "size_bytes": 14013065
+    },
+    "training_summary.json": {
+      "sha256": "bdf6dea343e0ec2058636f89bd0dd439913bc89fd32b33eb60e59a748cfef0a0",
+      "size_bytes": 1442
+    },
+    "training_trace.json": {
+      "sha256": "da56b692864f10b0c85d6233437482958a70893a039c1933b89594719b26a43c",
+      "size_bytes": 352706
+    },
+    "validation_trace.json": {
+      "sha256": "200e3a3c3e28dbcd735d79e9851b55dd8a61ea110ab8b13ef1763a4180ffa045",
+      "size_bytes": 59582
+    }
+  },
+  "physical_case_manifest_sha256": "9b56981be163ed8651e40fdc9e3384c9e641e8d6b9719637382b491c66a4d5c7",
+  "protocol_generation": "v1",
+  "protocol_sha256": "3f45e48e777e380d57daef9df63ffd7498534b522aa9a9aa5c2c9cf51e71c0d3",
+  "schema_version": "dqn-development-result-freeze-v1",
+  "source_commit": "a982a6fdb813bec4ae5a7f69c510c54cd00abe59",
+  "stop_reason": "maximum_episodes_reached",
+  "topology_id": "manhattan"
+}
