@@ -70,6 +70,12 @@ class PhysicalDQNEpisodeResult:
 
     processed_events: int
     completed_services: int
+
+    # Number of physically closed transition records regardless
+    # of whether this episode is training or pure evaluation.
+    transition_records: int
+
+    # Number actually inserted into ReplayBuffer.
     replay_transitions: int
 
     total_reward: float
@@ -227,6 +233,7 @@ def run_physical_dqn_episode(
     prediction_horizon_hours: float = 4.0,
     sla_limit_hours: float = 6.0,
     optimize_after_transition: bool = True,
+    record_replay: bool = True,
     max_events: int = 1_000_000,
 ) -> PhysicalDQNEpisodeResult:
     """
@@ -270,6 +277,19 @@ def run_physical_dqn_episode(
         raise PhysicalDQNEpisodeError(
             "service_time_seconds must be positive"
         )
+
+    if (
+        optimize_after_transition
+        and not record_replay
+    ):
+        raise PhysicalDQNEpisodeError(
+            "optimize_after_transition requires "
+            "record_replay=True"
+        )
+
+    replay_size_at_start = len(
+        agent.replay_buffer
+    )
 
     if epsilon is None:
         resolved_epsilon = (
@@ -360,6 +380,9 @@ def run_physical_dqn_episode(
             optimize_after_transition=(
                 optimize_after_transition
             ),
+            record_replay=(
+                record_replay
+            ),
         )
     )
 
@@ -431,6 +454,28 @@ def run_physical_dqn_episode(
     transitions = (
         training_policy.transitions
     )
+
+    replay_size_at_end = len(
+        agent.replay_buffer
+    )
+
+    replay_transitions_added = (
+        replay_size_at_end
+        - replay_size_at_start
+    )
+
+    if replay_transitions_added < 0:
+        raise PhysicalDQNEpisodeError(
+            "ReplayBuffer size moved backwards"
+        )
+
+    if (
+        not record_replay
+        and replay_transitions_added != 0
+    ):
+        raise PhysicalDQNEpisodeError(
+            "evaluation episode mutated ReplayBuffer"
+        )
 
     total_reward = sum(
         transition.reward
@@ -532,8 +577,11 @@ def run_physical_dqn_episode(
         completed_services=len(
             orchestrator.completed_services
         ),
-        replay_transitions=len(
+        transition_records=len(
             transitions
+        ),
+        replay_transitions=int(
+            replay_transitions_added
         ),
         total_reward=float(
             total_reward

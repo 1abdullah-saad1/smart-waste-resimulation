@@ -366,3 +366,90 @@ def test_episode_reward_uses_action_distance_not_terminal_return():
             result.fleet_distance_km
         )
     )
+
+
+def test_pure_evaluation_does_not_mutate_replay_buffer():
+    snapshot = make_snapshot()
+
+    agent = zero_agent()
+
+    # First create one real training transition.
+    training_result = run_physical_dqn_episode(
+        snapshot=snapshot,
+        scenario_id="synthetic-one-bin",
+        agent=agent,
+        episode_index=0,
+        epsilon=0.0,
+        optimize_after_transition=False,
+        record_replay=True,
+    )
+
+    assert (
+        training_result.transition_records
+        == 1
+    )
+
+    assert (
+        training_result.replay_transitions
+        == 1
+    )
+
+    replay_before = len(
+        agent.replay_buffer
+    )
+
+    optimization_before = (
+        agent.optimization_steps
+    )
+
+    evaluation_result = run_physical_dqn_episode(
+        snapshot=snapshot,
+        scenario_id="synthetic-one-bin",
+        agent=agent,
+        episode_index=1,
+        epsilon=0.0,
+        optimize_after_transition=False,
+        record_replay=False,
+    )
+
+    assert (
+        evaluation_result.transition_records
+        == 1
+    )
+
+    assert (
+        evaluation_result.replay_transitions
+        == 0
+    )
+
+    assert len(
+        agent.replay_buffer
+    ) == replay_before
+
+    assert (
+        agent.optimization_steps
+        == optimization_before
+    )
+
+
+def test_pure_evaluation_rejects_optimizer_updates():
+    snapshot = make_snapshot()
+
+    agent = zero_agent()
+
+    with pytest.raises(
+        Exception,
+        match=(
+            "optimize_after_transition requires "
+            "record_replay=True"
+        ),
+    ):
+        run_physical_dqn_episode(
+            snapshot=snapshot,
+            scenario_id="synthetic-one-bin",
+            agent=agent,
+            episode_index=0,
+            epsilon=0.0,
+            optimize_after_transition=True,
+            record_replay=False,
+        )

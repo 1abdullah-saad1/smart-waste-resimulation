@@ -118,6 +118,7 @@ class PhysicalDQNTrainingPolicy(
             | None
         ) = None,
         optimize_after_transition: bool = True,
+        record_replay: bool = True,
     ) -> None:
         self._policy = policy
 
@@ -130,6 +131,19 @@ class PhysicalDQNTrainingPolicy(
         self._optimize_after_transition = bool(
             optimize_after_transition
         )
+
+        self._record_replay = bool(
+            record_replay
+        )
+
+        if (
+            self._optimize_after_transition
+            and not self._record_replay
+        ):
+            raise ValueError(
+                "optimize_after_transition requires "
+                "record_replay=True"
+            )
 
         self._pending: dict[
             int,
@@ -603,27 +617,28 @@ class PhysicalDQNTrainingPolicy(
             ),
         )
 
-        self._policy.agent.remember(
-            state=pending.state,
-            action=(
-                pending.action_bin_id
-            ),
-            reward=reward,
-            next_state=next_state,
-            terminal=terminal,
-            next_action_mask=(
-                next_mask
-            ),
-        )
-
         loss = None
 
-        if self._optimize_after_transition:
-            loss = (
-                self._policy
-                .agent
-                .optimize()
+        if self._record_replay:
+            self._policy.agent.remember(
+                state=pending.state,
+                action=(
+                    pending.action_bin_id
+                ),
+                reward=reward,
+                next_state=next_state,
+                terminal=terminal,
+                next_action_mask=(
+                    next_mask
+                ),
             )
+
+            if self._optimize_after_transition:
+                loss = (
+                    self._policy
+                    .agent
+                    .optimize()
+                )
 
         record = (
             PhysicalTransitionRecord(
