@@ -1,0 +1,38 @@
+{
+  "checkpoint_file_sha256": "1eb91807683ccfbf4cdbbe077792e75ab031fd92131c2fa53b774a7246251e5c",
+  "classification": "development_nonconverged",
+  "confirmatory_data_used": false,
+  "converged": false,
+  "dataset_manifest_sha256": "18bbf059305886970d3bcfc363a2140a4fe32d837901bd3ccd67af8d24384133",
+  "diagnosis": "Radial-Concentric failed to satisfy the frozen reward-slope convergence criterion for three consecutive checks within 640 episodes. Curriculum phase alignment passed, and cycle-level analysis showed substantial condition-wise policy variation despite occasional stability in aggregate cycle means.",
+  "episodes_completed": 640,
+  "files": {
+    "convergence_checks.json": {
+      "sha256": "e529abeec2c3be444940b069a6a77d5aa80edcfc2b7aad9ada91aec5859859b4",
+      "size_bytes": 8344
+    },
+    "model_checkpoint.pt": {
+      "sha256": "1eb91807683ccfbf4cdbbe077792e75ab031fd92131c2fa53b774a7246251e5c",
+      "size_bytes": 14013321
+    },
+    "training_summary.json": {
+      "sha256": "a78ba91ea887c8e873f1ed27696c9467676928a80315e9e3c2613a947941e0f6",
+      "size_bytes": 1664
+    },
+    "training_trace.json": {
+      "sha256": "13d97634d8020ee5c2a8fe748fe5223ef1ded9956c8ab2ca6025e5beb6a99619",
+      "size_bytes": 353237
+    },
+    "validation_trace.json": {
+      "sha256": "7b24799b5076c1f4c5b70ff2a95866ec6bcd8d32a148aecb69d7af427e069e7a",
+      "size_bytes": 59609
+    }
+  },
+  "physical_case_manifest_sha256": "9b56981be163ed8651e40fdc9e3384c9e641e8d6b9719637382b491c66a4d5c7",
+  "protocol_generation": "v2",
+  "protocol_sha256": "b4d869352721136ee69192f77bb383cb1bc3c34b93b89c3595f3620c712544bc",
+  "schema_version": "dqn-development-result-freeze-v1",
+  "source_commit": "c4b72d47044102b4b26de1bc02974daf23d3a783",
+  "stop_reason": "maximum_episodes_reached",
+  "topology_id": "radial_concentric"
+}

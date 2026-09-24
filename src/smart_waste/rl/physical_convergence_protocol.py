@@ -93,6 +93,7 @@ def load_physical_convergence_protocol(
     if schema_version not in {
         "dqn-physical-convergence-v1",
         "dqn-physical-convergence-v2",
+        "dqn-physical-convergence-v3",
     }:
         raise PhysicalConvergenceProtocolError(
             "unexpected convergence protocol schema"
