@@ -1,0 +1,70 @@
+schema_version: dqn-seed-sensitivity-v1
+investigation_version: 1.0.0
+purpose: Root-cause investigation of the Radial-Concentric DQN convergence result.
+  Distinguish seed-specific stochastic behavior from systematic interaction between
+  topology, reward scale, curriculum ordering, and the predeclared convergence measurement.
+base_convergence_protocol:
+  path: configs/rl/dqn_physical_convergence_v3.yaml
+  sha256: 878446fe12985e7f7fa9cc41c39e40efaa69bc8825c9ac102be24b205aa0413a
+  apply_unchanged_to_all_topologies: true
+  maximum_episodes: 1280
+  training_window_episodes: 64
+  validation_interval_episodes: 32
+  normalized_reward_slope_threshold: 0.0025
+  normalized_loss_slope_threshold: 0.005
+  patience_consecutive_checks: 3
+  validation_metric_stability_required: false
+topologies:
+- manhattan
+- superblock
+- hex
+- radial_concentric
+replicates:
+  count_per_topology: 5
+  seed_generation_algorithm: SHA-256(namespace:index), first 8 bytes big-endian, modulo
+    2^31-1
+  seed_namespace: smart-waste-dqn-seed-sensitivity-v1
+  master_seeds:
+  - 173648848
+  - 1076401990
+  - 1648303745
+  - 326648086
+  - 472012799
+  same_master_seed_set_for_all_topologies: true
+execution_rules:
+  fresh_agent_each_run: true
+  fresh_replay_buffer_each_run: true
+  training_dataset_unchanged: true
+  validation_dataset_unchanged: true
+  curriculum_unchanged: true
+  reward_function_unchanged: true
+  dqn_hyperparameters_unchanged: true
+  convergence_thresholds_unchanged: true
+  no_confirmatory_data_used: true
+  no_performance_based_checkpoint_selection: true
+  no_threshold_relaxation_after_results: true
+  diagnostic_only: true
+output_root: results/rl/diagnostic_seed_sensitivity_v1
+predeclared_outputs:
+- converged
+- stop_reason
+- episodes_completed
+- normalized_reward_slope
+- normalized_loss_slope
+- consecutive_stable_checks
+- phase_component
+- phase_demeaned_residual
+- cycle_mean_trend
+- greedy_validation_reward_trend
+- greedy_validation_distance_trend
+interpretation_plan:
+  seed_specific_pattern: Supported if Radial convergence/failure varies substantially
+    across independent seeds without a recurring diagnostic signature.
+  measurement_interaction_pattern: Supported if Radial repeatedly fails the raw reward-slope
+    gate while its phase-demeaned trend is small and the failure is dominated by the
+    fixed curriculum phase component.
+  ongoing_learning_pattern: Supported if failed runs also retain material order-independent
+    cycle trends and/or greedy validation drift rather than only a fixed-phase slope
+    contribution.
+  general_criterion_seed_sensitivity: Supported if comparable failures recur across
+    multiple non-Radial topologies under the same unchanged protocol.
