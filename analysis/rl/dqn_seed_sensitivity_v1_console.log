@@ -1,0 +1,88 @@
+========================================================================================
+FINAL DQN SEED-SENSITIVITY ANALYSIS
+========================================================================================
+replicate=1 topology=manhattan          episodes=416  converged=True  raw=+0.000325293 phase=+0.000711048 residual=-0.000385755
+replicate=1 topology=superblock         episodes=544  converged=True  raw=+0.001971471 phase=+0.001726619 residual=+0.000244852
+replicate=1 topology=hex                episodes=288  converged=True  raw=+0.001750697 phase=+0.001039291 residual=+0.000711406
+replicate=1 topology=radial_concentric  episodes=256  converged=True  raw=+0.002272147 phase=+0.001468781 residual=+0.000803367
+replicate=2 topology=manhattan          episodes=256  converged=True  raw=+0.002153502 phase=+0.001105411 residual=+0.001048091
+replicate=2 topology=superblock         episodes=288  converged=True  raw=+0.001510783 phase=+0.001916454 residual=-0.000405670
+replicate=2 topology=hex                episodes=256  converged=True  raw=+0.001801503 phase=+0.001740716 residual=+0.000060787
+replicate=2 topology=radial_concentric  episodes=1280 converged=False raw=+0.005141115 phase=+0.004352692 residual=+0.000788423
+replicate=3 topology=manhattan          episodes=256  converged=True  raw=+0.001563786 phase=+0.001376033 residual=+0.000187753
+replicate=3 topology=superblock         episodes=256  converged=True  raw=+0.002122043 phase=+0.002392901 residual=-0.000270858
+replicate=3 topology=hex                episodes=256  converged=True  raw=+0.001395612 phase=+0.000484040 residual=+0.000911572
+replicate=3 topology=radial_concentric  episodes=576  converged=True  raw=+0.001938652 phase=+0.001579619 residual=+0.000359033
+replicate=4 topology=manhattan          episodes=256  converged=True  raw=+0.000464804 phase=+0.000827087 residual=-0.000362283
+replicate=4 topology=superblock         episodes=448  converged=True  raw=+0.001667166 phase=+0.002412197 residual=-0.000745030
+replicate=4 topology=hex                episodes=256  converged=True  raw=+0.001485265 phase=+0.000567098 residual=+0.000918166
+replicate=4 topology=radial_concentric  episodes=544  converged=True  raw=+0.002016406 phase=+0.001287833 residual=+0.000728573
+replicate=5 topology=manhattan          episodes=256  converged=True  raw=+0.000231084 phase=+0.000894657 residual=-0.000663573
+replicate=5 topology=superblock         episodes=256  converged=True  raw=+0.000992898 phase=+0.001183569 residual=-0.000190671
+replicate=5 topology=hex                episodes=256  converged=True  raw=+0.001081313 phase=+0.000570621 residual=+0.000510692
+replicate=5 topology=radial_concentric  episodes=256  converged=True  raw=+0.001706666 phase=+0.001871277 residual=-0.000164611
+
+========================================================================================
+TOPOLOGY SUMMARY
+========================================================================================
+
+manhattan
+converged: 5/5
+right_censored: 0
+KM_median_episodes: 256.0
+RMST_to_1280: 288.000
+median_abs_final_reward_slope: 0.000464804
+median_abs_phase_component: 0.000894657
+median_abs_phase_demeaned_residual: 0.000385755
+median_abs_cycle_mean_trend: 0.000637666
+median_abs_validation_reward_trend: 0.000095282
+median_abs_validation_distance_trend: 0.000062465
+
+superblock
+converged: 5/5
+right_censored: 0
+KM_median_episodes: 288.0
+RMST_to_1280: 358.400
+median_abs_final_reward_slope: 0.001667166
+median_abs_phase_component: 0.001916454
+median_abs_phase_demeaned_residual: 0.000270858
+median_abs_cycle_mean_trend: 0.000402784
+median_abs_validation_reward_trend: 0.000122690
+median_abs_validation_distance_trend: 0.000024035
+
+hex
+converged: 5/5
+right_censored: 0
+KM_median_episodes: 256.0
+RMST_to_1280: 262.400
+median_abs_final_reward_slope: 0.001485265
+median_abs_phase_component: 0.000570621
+median_abs_phase_demeaned_residual: 0.000711406
+median_abs_cycle_mean_trend: 0.000355605
+median_abs_validation_reward_trend: 0.000090673
+median_abs_validation_distance_trend: 0.000058637
+
+radial_concentric
+converged: 4/5
+right_censored: 1
+KM_median_episodes: 544.0
+RMST_to_1280: 582.400
+median_abs_final_reward_slope: 0.002016406
+median_abs_phase_component: 0.001579619
+median_abs_phase_demeaned_residual: 0.000728573
+median_abs_cycle_mean_trend: 0.000541973
+median_abs_validation_reward_trend: 0.000148447
+median_abs_validation_distance_trend: 0.000054536
+
+========================================================================================
+FINAL ANALYSIS AUDIT
+========================================================================================
+runs_analyzed: 20
+integrity_failures: 0
+max_reward_slope_recompute_error: 0.000e+00
+max_loss_slope_recompute_error: 0.000e+00
+max_phase_reconstruction_error: 1.171e-17
+RIGHT_CENSORING_HANDLED: PASS
+FINAL_SEED_SENSITIVITY_ANALYSIS: PASS
+
+output_directory: analysis/rl/dqn_seed_sensitivity_v1
