@@ -154,6 +154,8 @@ class PhysicalDQNTrainingPolicy(
             PhysicalTransitionRecord
         ] = []
 
+        self._replay_insertions = 0
+
         self._initialized = False
 
     @property
@@ -171,6 +173,14 @@ class PhysicalDQNTrainingPolicy(
     ]:
         return tuple(
             self._transitions
+        )
+
+    @property
+    def replay_insertions(
+        self,
+    ) -> int:
+        return int(
+            self._replay_insertions
         )
 
     @property
@@ -207,6 +217,7 @@ class PhysicalDQNTrainingPolicy(
 
         self._pending.clear()
         self._transitions.clear()
+        self._replay_insertions = 0
 
         self._initialized = True
 
@@ -632,6 +643,8 @@ class PhysicalDQNTrainingPolicy(
                     next_mask
                 ),
             )
+
+            self._replay_insertions += 1
 
             if self._optimize_after_transition:
                 loss = (

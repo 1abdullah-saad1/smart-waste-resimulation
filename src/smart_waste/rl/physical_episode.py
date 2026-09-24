@@ -287,10 +287,6 @@ def run_physical_dqn_episode(
             "record_replay=True"
         )
 
-    replay_size_at_start = len(
-        agent.replay_buffer
-    )
-
     if epsilon is None:
         resolved_epsilon = (
             agent.epsilon(
@@ -455,19 +451,9 @@ def run_physical_dqn_episode(
         training_policy.transitions
     )
 
-    replay_size_at_end = len(
-        agent.replay_buffer
-    )
-
     replay_transitions_added = (
-        replay_size_at_end
-        - replay_size_at_start
+        training_policy.replay_insertions
     )
-
-    if replay_transitions_added < 0:
-        raise PhysicalDQNEpisodeError(
-            "ReplayBuffer size moved backwards"
-        )
 
     if (
         not record_replay
