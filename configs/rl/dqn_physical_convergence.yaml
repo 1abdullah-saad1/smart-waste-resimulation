@@ -1,0 +1,100 @@
+schema_version: dqn-physical-convergence-v1
+protocol_version: "1.0.0"
+
+classification:
+  type: predeclared_revised_benchmark_protocol
+  manuscript_parameter: false
+  performance_tuned: false
+
+model_scope:
+  strategy: one_model_per_topology
+  topologies:
+    - manhattan
+    - superblock
+    - hex
+    - radial_concentric
+  reason: >
+    Action semantics are stable across workload replicates within
+    each topology but differ between topologies for the frozen
+    3002-feature state/action representation.
+
+dataset:
+  manifest:
+    data/processed/rl/dqn_training_dataset/dqn_training_dataset_manifest.json
+  manifest_sha256:
+    18bbf059305886970d3bcfc363a2140a4fe32d837901bd3ccd67af8d24384133
+  training_workloads: 8
+  validation_workloads: 2
+  confirmatory_profile_overlap_allowed: false
+
+training:
+  curriculum_strategy: deterministic_round_robin
+  challenge_order:
+    - H0
+    - H1
+    - H2
+    - H3
+  curriculum_period_episodes: 32
+
+  minimum_episodes: 192
+  maximum_episodes: 640
+
+  epsilon_source: frozen_dqn_config
+  replay_enabled: true
+  optimization_enabled: true
+
+validation:
+  interval_episodes: 32
+  epsilon: 0.0
+  replay_enabled: false
+  optimization_enabled: false
+
+  challenge_order:
+    - H0
+    - H1
+    - H2
+    - H3
+
+  conditions_per_checkpoint: 8
+
+convergence:
+  training_window_episodes: 64
+
+  normalized_reward_slope_threshold: 0.0025
+  normalized_loss_slope_threshold: 0.005
+
+  max_validation_fuel_relative_change: 0.02
+  max_validation_reward_relative_change: 0.02
+
+  patience_consecutive_checks: 3
+
+  require_all_training_episodes_natural_completion: true
+  require_all_validation_runs_natural_completion: true
+
+  final_model_rule: first_checkpoint_satisfying_all_criteria
+
+  maximum_episode_failure_rule: >
+    If convergence is not reached by maximum_episodes, classify
+    the topology model as non-converged. Do not relax thresholds,
+    extend the episode limit, or select a model post hoc under
+    this protocol.
+
+seeds:
+  master_agent_seed: 20260924
+  derivation: sha256_namespace_by_topology
+
+reproducibility:
+  require_clean_git_tree_before_real_training: true
+  save_protocol_sha256: true
+  save_dataset_manifest_sha256: true
+  save_physical_training_case_manifest_sha256: true
+  save_source_commit: true
+  save_agent_seed: true
+  save_dqn_config: true
+  save_online_network: true
+  save_target_network: true
+  save_optimizer_state: true
+  save_optimization_steps: true
+  save_numpy_rng_state: true
+  save_training_trace: true
+  save_validation_trace: true
