@@ -1,0 +1,17 @@
+{
+  "assignments": [],
+  "challenge_id": "H0",
+  "challenge_type": "nominal",
+  "event_seed": 1360800234681857266,
+  "hazard_scenario_id": "hazard-rep07-h0-f7a2f66e3cab",
+  "initial_full_elapsed_policy": "zero_at_t0_primary_benchmark",
+  "interpretation": "controlled_routing_hazard_challenge_not_real_world_prevalence_model",
+  "master_hazard_seed": 20260924,
+  "overlay_sha256": "f7a2f66e3cabdac1eb1783db72be159a718c9a48de114be851a8bbd8543153c7",
+  "overlay_version": "1.0.0",
+  "schema_version": "research-hazard-overlay-v1",
+  "selection_contract": "deterministic_hash_ranked_bins_independent_of_topology_fill_and_performance",
+  "workload_id": "empirical-workload-0e37dfe4d1869395",
+  "workload_replicate_id": 7,
+  "workload_sha256": "0e37dfe4d186939573759d83dc0f400ee7988421c4ca4a68939a67bcd5a89101"
+}

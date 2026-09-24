@@ -1,0 +1,33 @@
+{
+  "assignments": [
+    {
+      "bin_id": 184,
+      "hazard_type": "emergency_fire",
+      "routing_severity": 1.0
+    },
+    {
+      "bin_id": 598,
+      "hazard_type": "predicted_combustion",
+      "routing_severity": 0.6666666666666666
+    },
+    {
+      "bin_id": 927,
+      "hazard_type": "excess_moisture",
+      "routing_severity": 0.3333333333333333
+    }
+  ],
+  "challenge_id": "H3",
+  "challenge_type": "mixed_hazard",
+  "event_seed": 6157313566666768706,
+  "hazard_scenario_id": "hazard-rep07-h3-1a5a929ca28e",
+  "initial_full_elapsed_policy": "zero_at_t0_primary_benchmark",
+  "interpretation": "controlled_routing_hazard_challenge_not_real_world_prevalence_model",
+  "master_hazard_seed": 20260924,
+  "overlay_sha256": "1a5a929ca28ed98e9b93a39d7a7e775385de94e0162bcc2deb925198de28c984",
+  "overlay_version": "1.0.0",
+  "schema_version": "research-hazard-overlay-v1",
+  "selection_contract": "deterministic_hash_ranked_bins_independent_of_topology_fill_and_performance",
+  "workload_id": "empirical-workload-0e37dfe4d1869395",
+  "workload_replicate_id": 7,
+  "workload_sha256": "0e37dfe4d186939573759d83dc0f400ee7988421c4ca4a68939a67bcd5a89101"
+}

@@ -1,0 +1,23 @@
+{
+  "assignments": [
+    {
+      "bin_id": 253,
+      "hazard_type": "emergency_fire",
+      "routing_severity": 1.0
+    }
+  ],
+  "challenge_id": "H2",
+  "challenge_type": "emergency_fire",
+  "event_seed": 8491390234354339224,
+  "hazard_scenario_id": "hazard-rep02-h2-ffa0d3a17c79",
+  "initial_full_elapsed_policy": "zero_at_t0_primary_benchmark",
+  "interpretation": "controlled_routing_hazard_challenge_not_real_world_prevalence_model",
+  "master_hazard_seed": 20260924,
+  "overlay_sha256": "ffa0d3a17c790d9a17257109a2299e9e25fa67e7c1640a092d2f4849543b892e",
+  "overlay_version": "1.0.0",
+  "schema_version": "research-hazard-overlay-v1",
+  "selection_contract": "deterministic_hash_ranked_bins_independent_of_topology_fill_and_performance",
+  "workload_id": "empirical-workload-7b4bf6f98b6d9b8f",
+  "workload_replicate_id": 2,
+  "workload_sha256": "7b4bf6f98b6d9b8fcb8b68a405f5ea6b023a56290d4a82662a6794d00699a05d"
+}

@@ -1,0 +1,23 @@
+{
+  "assignments": [
+    {
+      "bin_id": 108,
+      "hazard_type": "predicted_combustion",
+      "routing_severity": 0.6666666666666666
+    }
+  ],
+  "challenge_id": "H1",
+  "challenge_type": "predictive_combustion",
+  "event_seed": 4196201665955084505,
+  "hazard_scenario_id": "hazard-rep09-h1-3b40635d6dbe",
+  "initial_full_elapsed_policy": "zero_at_t0_primary_benchmark",
+  "interpretation": "controlled_routing_hazard_challenge_not_real_world_prevalence_model",
+  "master_hazard_seed": 20260924,
+  "overlay_sha256": "3b40635d6dbed4dff63f5efcb4318270622fd36bd454561f4f72b8a320565281",
+  "overlay_version": "1.0.0",
+  "schema_version": "research-hazard-overlay-v1",
+  "selection_contract": "deterministic_hash_ranked_bins_independent_of_topology_fill_and_performance",
+  "workload_id": "empirical-workload-2dbc5210c3e3b157",
+  "workload_replicate_id": 9,
+  "workload_sha256": "2dbc5210c3e3b157bed6f83de36a6d9ea7a4af15892df788fe6abe844404516b"
+}
